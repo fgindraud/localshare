@@ -1,26 +1,28 @@
 #include "trayIcon.h"
 
+#include "common.h"
+
 TrayIcon::TrayIcon () : QSystemTrayIcon () {
 	// create menu
-	contextMenu = new QMenu ();
+	m_context = new QMenu ();
 	
-	aboutAction = new QAction (tr ("&About..."), this);
-	connect (aboutAction, SIGNAL (triggered ()), this, SLOT (about ()));
+	m_about = new QAction (tr ("&About..."), this);
+	QObject::connect (m_about, SIGNAL (triggered ()), this, SLOT (about ()));
 
-	exitAction = new QAction (tr ("&Exit"), this);
-	connect (exitAction, SIGNAL (triggered ()), qApp, SLOT (quit ()));
+	m_exit = new QAction (tr ("&Exit"), this);
+	QObject::connect (m_exit, SIGNAL (triggered ()), qApp, SLOT (quit ()));
 
-	contextMenu->addAction (aboutAction);
-	contextMenu->addAction (exitAction);
+	m_context->addAction (m_about);
+	m_context->addAction (m_exit);
 
 	// set icon and show
-	setContextMenu (contextMenu);
-	setIcon (QIcon ("icon.svg")); // TODO icon as ressource
+	setContextMenu (m_context);
+	setIcon (qApp->windowIcon ()); 
 	show ();
 }
 
 TrayIcon::~TrayIcon () {
-	delete contextMenu;
+	delete m_context;
 }
 
 void TrayIcon::about (void) {

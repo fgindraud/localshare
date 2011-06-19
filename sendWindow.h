@@ -2,7 +2,10 @@
 #define H_SENDWINDOW
 
 #include "localshare.h"
+#include "common.h"
 
+#include <QUdpSocket>
+#include <QByteArray>
 #include <QtGui>
 
 class SendWindow : public QWidget {
@@ -11,11 +14,11 @@ class SendWindow : public QWidget {
 	public:
 		SendWindow ();
 
+	public slots:
+		void toggled (void);
+
 	private:
-
-		QVBoxLayout * mainLayout;
-
-
+		QLabel * m_label;
 };
 
 #endif

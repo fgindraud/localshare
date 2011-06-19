@@ -18,10 +18,10 @@ class TrayIcon : public QSystemTrayIcon {
 	private:
 		void createMenu (void);
 
-		QMenu * contextMenu;
+		QMenu * m_context;
 
-		QAction * aboutAction;
-		QAction * exitAction;
+		QAction * m_about;
+		QAction * m_exit;
 };
 
 #endif

@@ -5,10 +5,11 @@
 
 int main (int argc, char *argv[]) {
 	QApplication app (argc, argv);
+
 	app.setQuitOnLastWindowClosed (false);
-	
+	app.setWindowIcon (QIcon ("icon.svg"));
+
 	TrayIcon trayIcon;
-	Settings settings;
 
 	return app.exec ();
 }
