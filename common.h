@@ -4,21 +4,21 @@
 #include <QtCore>
 #include <QHostAddress>
 
+/*
+ * Handle program settings, and defaults values
+ */
 class Settings : private QSettings {
 	public:
 		Settings ();
 
-		/* network */
+		/* network settings */
 		QString name (void) const;
-		void setName (const QString & name);
-
-		quint16 udpPort (void) const;
-		void setUdpPort (quint16 port);
+		void setName (QString & name);
 
 		quint16 tcpPort (void) const;
 		void setTcpPort (quint16 port);
 
-		/* download */
+		/* download path/confirmation settings */
 		QString downloadPath (void) const;
 		void setDownloadPath (const QString & path);
 
@@ -41,6 +41,9 @@ class Peer {
 
 bool operator== (const Peer & a, const Peer & b);
 
+/*
+ * Error messages
+ */
 class Message {
 	public:
 		static void error (const QString & title, const QString & message);

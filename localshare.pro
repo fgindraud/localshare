@@ -9,5 +9,5 @@ INCLUDEPATH += .
 QT += network
 
 # Input
-HEADERS += common.h localshare.h sendWindow.h trayIcon.h udpDiscovery.h
-SOURCES += common.cpp main.cpp sendWindow.cpp trayIcon.cpp udpDiscovery.cpp
+HEADERS += common.h localshare.h sendWindow.h trayIcon.h 
+SOURCES += common.cpp main.cpp sendWindow.cpp trayIcon.cpp

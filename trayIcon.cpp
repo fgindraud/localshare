@@ -15,6 +15,9 @@ TrayIcon::TrayIcon () : QSystemTrayIcon () {
 	m_context->addAction (m_about);
 	m_context->addAction (m_exit);
 
+	// Add Drag & Drop capabilities
+	// TODO
+
 	// set icon and show
 	setContextMenu (m_context);
 	setIcon (qApp->windowIcon ()); 
