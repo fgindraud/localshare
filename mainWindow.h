@@ -1,18 +1,16 @@
-#ifndef H_SENDWINDOW
-#define H_SENDWINDOW
+#ifndef H_MAINWINDOW
+#define H_MAINWINDOW
 
 #include "localshare.h"
 #include "common.h"
 
-#include <QUdpSocket>
-#include <QByteArray>
 #include <QtGui>
 
-class SendWindow : public QWidget {
+class MainWindow : public QWidget {
 	Q_OBJECT
 
 	public:
-		SendWindow ();
+		MainWindow ();
 
 	public slots:
 		void toggled (void);

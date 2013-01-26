@@ -7,7 +7,12 @@ TARGET =
 DEPENDPATH += .
 INCLUDEPATH += .
 QT += network
+CONFIG += link_pkgconfig
+PKGCONFIG += avahi-qt4 avahi-client
 
 # Input
-HEADERS += common.h localshare.h sendWindow.h trayIcon.h 
-SOURCES += common.cpp main.cpp sendWindow.cpp trayIcon.cpp
+HEADERS += common.h localshare.h mainWindow.h trayIcon.h 
+SOURCES += common.cpp main.cpp mainWindow.cpp trayIcon.cpp
+
+HEADERS += qtzeroconf/zconfservicebrowser.h qtzeroconf/zconfserviceclient.h qtzeroconf/zconfservice.h
+SOURCES += qtzeroconf/zconfservicebrowser.cpp qtzeroconf/zconfserviceclient.cpp qtzeroconf/zconfservice.cpp

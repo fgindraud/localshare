@@ -6,15 +6,24 @@
 int main (int argc, char *argv[]) {
 	QApplication app (argc, argv);
 
-	// Using no main window, so disable stupid defaults
-	app.setQuitOnLastWindowClosed (false);
+	if (QSystemTrayIcon::isSystemTrayAvailable ()) {
+		// Using no main window, so disable stupid defaults
+		app.setQuitOnLastWindowClosed (false);
 
-	// Icon
-	app.setWindowIcon (QIcon ("icon.svg"));
+		// Icon
+		app.setWindowIcon (QIcon ("icon.svg"));
 
-	// Create tray icon, and show it.
-	TrayIcon trayIcon;
+		// Create tray icon, and show it.
+		TrayIcon trayIcon;
+		
+		return app.exec ();
+	} else {
+		Message::error (
+			"No system tray",
+			APP_NAME " requires a system tray system to work"
+		);
 
-	return app.exec ();
+		return app.exec ();
+	}
 }
 

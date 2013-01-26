@@ -26,6 +26,7 @@ class Settings : private QSettings {
 		void setAlwaysDownload (bool always);
 };
 
+// TODO is this useful ??
 class Peer {
 	public:
 		Peer (const QString & name, const QHostAddress & address);
