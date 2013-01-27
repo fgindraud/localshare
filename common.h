@@ -26,21 +26,6 @@ class Settings : private QSettings {
 		void setAlwaysDownload (bool always);
 };
 
-// TODO is this useful ??
-class Peer {
-	public:
-		Peer (const QString & name, const QHostAddress & address);
-		QString name (void) const;
-		const QHostAddress & address (void) const;
-
-		typedef QList<Peer> List;
-
-	private:
-		QString m_name;
-		QHostAddress m_address;
-};
-
-bool operator== (const Peer & a, const Peer & b);
 
 /*
  * Error messages

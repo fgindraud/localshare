@@ -1,9 +1,15 @@
 #include "trayIcon.h"
-
 #include "common.h"
 
-TrayIcon::TrayIcon () : QSystemTrayIcon () {
+TrayIcon::TrayIcon (const MainWindow * window) : QSystemTrayIcon () {
+	// Create trayicon
 	createMenu ();
+
+	// Link clicked signal to mainWindow
+	QObject::connect (this, SIGNAL (mainWindowToggled ()),
+			window, SLOT (toggled ()));
+
+	// Show it permanently
 	show ();
 }
 
@@ -20,16 +26,22 @@ void TrayIcon::createMenu (void) {
 	m_context->addAction (m_about);
 	m_context->addAction (m_exit);
 
-	// Add main window toggling on click
-	// TODO
-
-	// set icon and show
+	// set icon
 	setContextMenu (m_context);
-	setIcon (qApp->windowIcon ()); 
+	setIcon (qApp->windowIcon ());
+
+	// connect internal signals
+	QObject::connect (this, SIGNAL (activated (QSystemTrayIcon::ActivationReason)),
+		this, SLOT (wasClicked (QSystemTrayIcon::ActivationReason)));	
 }
 
 TrayIcon::~TrayIcon () {
 	delete m_context;
+}
+
+void TrayIcon::wasClicked (QSystemTrayIcon::ActivationReason reason) {
+	if (reason == QSystemTrayIcon::Trigger)
+		emit mainWindowToggled ();
 }
 
 void TrayIcon::about (void) {

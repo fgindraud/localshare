@@ -85,23 +85,12 @@ void Settings::setAlwaysDownload (bool always) {
 	setValue (alwaysDownladKey, always);
 }
 
-/* ----- Peer ----- */
-Peer::Peer (const QString & name, const QHostAddress & address) : m_name (name), m_address (address) {
-}
-
-QString Peer::name (void) const {
-	return m_name;
-}
-
-const QHostAddress & Peer::address (void) const {
-	return m_address;
-}
-
-bool operator== (const Peer & a, const Peer & b) {
-	return a.name () == b.name () && a.address () == b.address ();
-}
-
 /* ----- Message ----- */
+
+/*
+ * User-level error and warning messages
+ */
+
 void Message::error (const QString & title, const QString & message) {
 	QMessageBox::critical (0, title, message);
 	qApp->quit ();
