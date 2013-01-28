@@ -6,15 +6,13 @@
 #ifndef H_TRAYICON
 #define H_TRAYICON
 
-#include "mainWindow.h"
-
 #include <QtGui>
 
 class TrayIcon : public QSystemTrayIcon {
 	Q_OBJECT
 
 	public:
-		TrayIcon (const MainWindow * mainWindow);
+		TrayIcon ();
 		~TrayIcon ();
 
 	signals:
@@ -27,10 +25,10 @@ class TrayIcon : public QSystemTrayIcon {
 	private:
 		void createMenu (void);
 
-		QMenu * m_context;
+		QMenu * mContext;
 
-		QAction * m_about;
-		QAction * m_exit;
+		QAction * mAbout;
+		QAction * mExit;
 };
 
 #endif

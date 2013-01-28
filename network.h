@@ -17,15 +17,17 @@
  */
 
 struct ZeroconfPeer {
-	QHostAddress m_address;
-	QString m_name;
-	quint16 m_port;
+	QHostAddress address;
+	QString name;
+	QString hostname;
+	quint16 port;
 
 	ZeroconfPeer () {}
-	ZeroconfPeer (ZConfServiceEntry & entry) :
-		m_address (entry.ip),
-		m_name (entry.host),
-		m_port (entry.port)
+	ZeroconfPeer (QString _name, ZConfServiceEntry & entry) :
+		address (entry.ip),
+		name (_name),
+		hostname (entry.host),
+		port (entry.port)
 	{}
 };
 
@@ -49,12 +51,12 @@ class ZeroconfHandler : public QObject {
 		void internalRemovePeer (QString name);
 
 	private:
-		ZConfServiceBrowser m_browser;
-		ZConfService m_service;
+		ZConfServiceBrowser mBrowser;
+		ZConfService mService;
 
-		// If any of this settings are changed, we must
-		QString m_name;
-		quint16 m_port;
+		// Cached settings. if settings changed, must reboot avahiService
+		QString mName;
+		quint16 mPort;
 };
 
 #endif

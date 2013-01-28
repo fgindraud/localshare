@@ -1,13 +1,9 @@
 #include "trayIcon.h"
 #include "common.h"
 
-TrayIcon::TrayIcon (const MainWindow * window) : QSystemTrayIcon () {
+TrayIcon::TrayIcon () : QSystemTrayIcon () {
 	// Create trayicon
 	createMenu ();
-
-	// Link clicked signal to mainWindow
-	QObject::connect (this, SIGNAL (mainWindowToggled ()),
-			window, SLOT (toggled ()));
 
 	// Show it permanently
 	show ();
@@ -15,19 +11,19 @@ TrayIcon::TrayIcon (const MainWindow * window) : QSystemTrayIcon () {
 
 void TrayIcon::createMenu (void) {
 	// create menu
-	m_context = new QMenu ();
+	mContext = new QMenu;
 	
-	m_about = new QAction ("&About...", this);
-	QObject::connect (m_about, SIGNAL (triggered ()), this, SLOT (about ()));
+	mAbout = new QAction ("&About...", this);
+	QObject::connect (mAbout, SIGNAL (triggered ()), this, SLOT (about ()));
 
-	m_exit = new QAction ("&Exit", this);
-	QObject::connect (m_exit, SIGNAL (triggered ()), qApp, SLOT (quit ()));
+	mExit = new QAction ("&Exit", this);
+	QObject::connect (mExit, SIGNAL (triggered ()), qApp, SLOT (quit ()));
 
-	m_context->addAction (m_about);
-	m_context->addAction (m_exit);
+	mContext->addAction (mAbout);
+	mContext->addAction (mExit);
 
 	// set icon
-	setContextMenu (m_context);
+	setContextMenu (mContext);
 	setIcon (qApp->windowIcon ());
 
 	// connect internal signals
@@ -36,7 +32,7 @@ void TrayIcon::createMenu (void) {
 }
 
 TrayIcon::~TrayIcon () {
-	delete m_context;
+	delete mContext;
 }
 
 void TrayIcon::wasClicked (QSystemTrayIcon::ActivationReason reason) {

@@ -18,11 +18,11 @@ int main (int argc, char *argv[]) {
 		// Network discovery
 		ZeroconfHandler networkDiscoveryHandler (settings);
 
-		// Main window
-		MainWindow mainWindow (settings, networkDiscoveryHandler);
-
 		// Create tray icon, and show it.
-		TrayIcon trayIcon (&mainWindow);
+		TrayIcon trayIcon;
+		
+		// Main window
+		MainWindow mainWindow (settings, &networkDiscoveryHandler, &trayIcon);
 		
 		// Start discovery
 		networkDiscoveryHandler.start ();

@@ -3,18 +3,22 @@
 /* ------ Zeroconf ----- */
 
 ZeroconfHandler::ZeroconfHandler (Settings & settings) :
-	m_browser (), m_service (),
-	m_name (settings.name ()),
-	m_port (settings.tcpPort ())
+	mBrowser (), mService (),
+	mName (settings.name ()),
+	mPort (settings.tcpPort ())
 {
+	QObject::connect (&mBrowser, SIGNAL (serviceEntryAdded (QString)),
+			this, SLOT (internalAddPeer (QString)));
+	QObject::connect (&mBrowser, SIGNAL (serviceEntryRemoved (QString)),
+			this, SLOT (internalRemovePeer (QString)));
 }
 
 void ZeroconfHandler::start (void) {
 	// Service declaration
-	m_service.registerService (m_name, m_port, AVAHI_SERVICE_NAME);
+	mService.registerService (mName, mPort, AVAHI_SERVICE_NAME);
 
 	// Start service browsing
-	m_browser.browse (AVAHI_SERVICE_NAME);
+	mBrowser.browse (AVAHI_SERVICE_NAME);
 }
 
 void ZeroconfHandler::settingsChanged (void) {
@@ -22,9 +26,12 @@ void ZeroconfHandler::settingsChanged (void) {
 }
 
 void ZeroconfHandler::internalAddPeer (QString name) {
-	ZConfServiceEntry entry = m_browser.serviceEntry (name);
-	if (entry.isValid ())
-		emit addPeer (ZeroconfPeer (entry));
+	ZConfServiceEntry entry = mBrowser.serviceEntry (name);
+
+	// Add peer if valid and not us
+	if (entry.isValid () && name != mName) {
+		emit addPeer (ZeroconfPeer (name, entry));
+	}
 }
 
 void ZeroconfHandler::internalRemovePeer (QString name) {
