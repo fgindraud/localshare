@@ -14,6 +14,10 @@
 
 class PeerListWidget;
 class PeerWidget;
+class TransferWidget;
+
+class InTransferWidget;
+class OutTransferWidget;
 
 class MainWindow : public QWidget {
 	Q_OBJECT
@@ -85,6 +89,16 @@ class PeerWidget : public QGroupBox {
 		PeerWidget (PeerHandler * peer);
 
 	private:
+};
+
+class TransferWidget : public QFrame {
+	// Base class.
+};
+
+class InTransferWidget : public TransferWidget {
+};
+
+class OutTransferWidget : public TransferWidget {
 };
 
 #endif

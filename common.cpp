@@ -100,3 +100,28 @@ void Message::warning (const QString & title, const QString & message) {
 	QMessageBox::warning (0, title, message);
 }
 
+/* ------ Icons ------ */
+
+IconFactory::IconFactory () { style = new QCommonStyle; } 
+IconFactory::~IconFactory () { delete style; }
+
+QIcon IconFactory::appIcon (void) {
+	return QIcon (":/icon.svg");
+}
+
+QIcon IconFactory::acceptIcon (void) {
+	return style->standardIcon (QStyle::SP_DialogOkButton);
+}
+QIcon IconFactory::closeAbortIcon (void) {
+	return style->standardIcon (QStyle::SP_DialogCancelButton);
+}
+
+QIcon IconFactory::inboundIcon (void) {
+	return style->standardIcon (QStyle::SP_ArrowLeft);
+}
+QIcon IconFactory::outboundIcon (void) {
+	return style->standardIcon (QStyle::SP_ArrowRight);
+}
+
+IconFactory appIcons;
+

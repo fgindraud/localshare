@@ -1,3 +1,4 @@
+#include "common.h"
 #include "trayIcon.h"
 #include "network.h"
 #include "mainWindow.h"
@@ -47,6 +48,6 @@ void programWideSettingsInit (QApplication & app) {
 	app.setQuitOnLastWindowClosed (false);
 
 	// Icon
-	app.setWindowIcon (QIcon ("icon.svg"));
+	app.setWindowIcon (appIcons.appIcon ());
 }
 

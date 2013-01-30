@@ -16,6 +16,7 @@ INCLUDEPATH += .
 QT += network
 CONFIG += link_pkgconfig
 PKGCONFIG += avahi-qt4 avahi-client
+RESOURCES += icon.qrc
 
 # Input
 HEADERS += common.h localshare.h mainWindow.h trayIcon.h network.h

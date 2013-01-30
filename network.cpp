@@ -38,5 +38,13 @@ void ZeroconfHandler::internalRemovePeer (QString name) {
 	emit removePeer (name);
 }
 
+/* ------ Tcp server ----- */
 
+TcpServer::TcpServer (Settings & settings) : QTcpServer () {
+	if (not listen (QHostAddress::Any, settings.tcpPort ()))
+		Message::error ("Tcp server",
+				"Tcp server error : " + errorString ());
+
+	// connect internal signal
+}
 

@@ -59,5 +59,21 @@ class ZeroconfHandler : public QObject {
 		quint16 mPort;
 };
 
+/*
+ * Tcp layer
+ */
+
+class TransferHandler;
+
+class TcpServer : private QTcpServer {
+	Q_OBJECT
+	
+	public:
+		TcpServer (Settings & settings);
+
+	signals:
+		void newConnection (TransferHandler * handler);
+};
+
 #endif
 

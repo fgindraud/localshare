@@ -3,6 +3,7 @@
 
 #include <QtCore>
 #include <QHostAddress>
+#include <QCommonStyle>
 
 /*
  * Handle program settings, and defaults values
@@ -35,6 +36,29 @@ class Message {
 		static void error (const QString & title, const QString & message);
 		static void warning (const QString & title, const QString & message);
 };
+
+/*
+ * Icons
+ */
+
+class IconFactory {
+	public:
+		IconFactory ();
+		~IconFactory ();
+
+		QIcon appIcon (void);
+
+		QIcon acceptIcon (void);
+		QIcon closeAbortIcon (void);
+
+		QIcon inboundIcon (void);
+		QIcon outboundIcon (void);
+
+	private:
+		QStyle * style;
+};
+
+extern IconFactory appIcons;
 
 #endif
 
