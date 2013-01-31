@@ -26,10 +26,5 @@
  */
 #define AVAHI_SERVICE_NAME ("_" APP_NAME "._tcp")
 
-//TODO what is this ??
-class TrayIcon;
-class SendWindow;
-class PeerListWidget;
-
 #endif
 

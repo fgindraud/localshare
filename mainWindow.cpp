@@ -49,6 +49,7 @@ void MainWindow::createMainWindow (void) {
 	setLayout (mMainVbox);
 	setWindowFlags (Qt::Window);
 	setWindowTitle (APP_NAME);
+	show ();
 }
 
 void MainWindow::closeEvent (QCloseEvent * event) {
@@ -57,6 +58,12 @@ void MainWindow::closeEvent (QCloseEvent * event) {
 
 	// Hide window instead
 	hide ();
+}
+
+void MainWindow::changeEvent (QEvent * event) {
+	QWidget::changeEvent (event);
+	if (event->type () == QEvent::WindowStateChange && isMinimized ())
+		hide ();
 }
 
 void MainWindow::toggled (void) {
@@ -169,8 +176,7 @@ TransferWidget::TransferWidget () : QFrame () {
 	// Left
 	mTransferTypeIcon = new QLabel;
 	mTransferTypeIcon->setAlignment (Qt::AlignHCenter | Qt::AlignVCenter);
-	mTransferTypeIcon->setFrameStyle (QFrame::StyledPanel | QFrame::Raised);
-	mTransferTypeIcon->setMargin (3);
+	mTransferTypeIcon->setMargin (2);
 
 	mFileDescr = new QLabel; //TODO get from transfer widget
 
@@ -211,6 +217,7 @@ InTransferWidget::InTransferWidget () : TransferWidget () {
 	// Set icon of label
 	int size = mTransferTypeIcon->sizeHint ().height ();
 	mTransferTypeIcon->setPixmap (appIcons.inboundIcon ().pixmap (size));
+	mTransferTypeIcon->setToolTip ("Download");
 
 	// Add accept button to waiting widget
 	mAcceptButton = new QPushButton;
@@ -224,4 +231,5 @@ OutTransferWidget::OutTransferWidget () : TransferWidget () {
 	// Set icon of label
 	int size = mTransferTypeIcon->sizeHint ().height ();
 	mTransferTypeIcon->setPixmap (appIcons.outboundIcon ().pixmap (size));
+	mTransferTypeIcon->setToolTip ("Upload");
 }

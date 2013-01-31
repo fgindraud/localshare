@@ -28,6 +28,7 @@ class MainWindow : public QWidget {
 				TrayIcon * trayIcon);
 
 		void closeEvent (QCloseEvent * event);
+		void changeEvent (QEvent * event);
 
 	public slots:
 		void toggled (void);

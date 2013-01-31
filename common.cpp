@@ -124,10 +124,10 @@ QIcon IconFactory::closeAbortIcon (void) {
 }
 
 QIcon IconFactory::inboundIcon (void) {
-	return style->standardIcon (QStyle::SP_ArrowLeft);
+	return style->standardIcon (QStyle::SP_ArrowDown);
 }
 QIcon IconFactory::outboundIcon (void) {
-	return style->standardIcon (QStyle::SP_ArrowRight);
+	return style->standardIcon (QStyle::SP_ArrowUp);
 }
 
 IconFactory appIcons;
