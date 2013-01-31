@@ -48,6 +48,9 @@ class IconFactory {
 
 		QIcon appIcon (void);
 
+		QIcon fileIcon (void);
+		QIcon settingsIcon (void);
+
 		QIcon acceptIcon (void);
 		QIcon closeAbortIcon (void);
 

@@ -109,6 +109,13 @@ QIcon IconFactory::appIcon (void) {
 	return QIcon (":/icon.svg");
 }
 
+QIcon IconFactory::fileIcon (void) {
+	return style->standardIcon (QStyle::SP_DirIcon);
+}
+QIcon IconFactory::settingsIcon (void) {
+	return style->standardIcon (QStyle::SP_ComputerIcon);
+}
+
 QIcon IconFactory::acceptIcon (void) {
 	return style->standardIcon (QStyle::SP_DialogOkButton);
 }

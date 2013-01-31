@@ -63,7 +63,19 @@ class ZeroconfHandler : public QObject {
  * Tcp layer
  */
 
-class TransferHandler;
+class TransferHandler : private QTcpSocket {
+	Q_OBJECT
+
+	public:
+		enum Step {
+			Waiting, Transferring, Finished
+		};
+
+		TransferHandler ();
+	
+	private:
+		Step mStep;
+};
 
 class TcpServer : private QTcpServer {
 	Q_OBJECT

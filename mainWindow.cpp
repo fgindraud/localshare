@@ -23,8 +23,19 @@ void MainWindow::createMainWindow (void) {
 	mHeaderFilterTextEdit = new QLineEdit;
 	mHeaderFilterTextEdit->setToolTip ("Filter peers");
 
+	// Add & settings buttons
+	mHeaderAddButton = new QPushButton;
+	mHeaderAddButton->setIcon (appIcons.fileIcon ());
+	mHeaderAddButton->setToolTip ("Send file...");
+
+	mHeaderSettingsButton = new QPushButton;
+	mHeaderSettingsButton->setIcon (appIcons.settingsIcon ());
+	mHeaderSettingsButton->setToolTip ("Settings");
+
 	mHeaderHbox = new QHBoxLayout;
-	mHeaderHbox->addWidget (mHeaderFilterTextEdit);
+	mHeaderHbox->addWidget (mHeaderFilterTextEdit, 1);
+	mHeaderHbox->addWidget (mHeaderAddButton);
+	mHeaderHbox->addWidget (mHeaderSettingsButton);
 
 	// Peer list
 	mPeerList = new PeerListWidget;
@@ -130,17 +141,87 @@ void PeerListWidget::removePeer (QString peer) {
 /* ------ PeerWidget ------ */
 
 PeerWidget::PeerWidget (PeerHandler * peer) :
-	QGroupBox (peer->name)
+	QGroupBox ()
 {
 	// Finish connection
 	peer->setView (this);
 
-	//setSizePolicy (QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
-	QVBoxLayout * l = new QVBoxLayout;
-	//l->setSizeConstraint (QLayout::SetMinimumSize);
-	l->addWidget (new QLabel (peer->address.toString () + "|" + peer->hostname));
-	l->addWidget (new QLabel (QString ("Port : %1").arg (peer->port)));
-	//l->addStretch (1);
-	setLayout (l);
+	// Add empty layout
+	mLayout = new QVBoxLayout;
+
+	//TEST
+	mLayout->addWidget (new InTransferWidget ());
+	mLayout->addWidget (new OutTransferWidget ());
+	
+	// Title
+	QString peerNetworkInfo = QString ("%1 : %2:%3 [%4]")
+		.arg (peer->name)
+		.arg (peer->address.toString ())
+		.arg (peer->port)
+		.arg (peer->hostname);
+	setTitle (peerNetworkInfo);
+	setLayout (mLayout);
 }
 
+/* ------ Transfer widget ------ */
+
+TransferWidget::TransferWidget () : QFrame () {
+	// Left
+	mTransferTypeIcon = new QLabel;
+	mTransferTypeIcon->setAlignment (Qt::AlignHCenter | Qt::AlignVCenter);
+	mTransferTypeIcon->setFrameStyle (QFrame::StyledPanel | QFrame::Raised);
+	mTransferTypeIcon->setMargin (3);
+
+	mFileDescr = new QLabel; //TODO get from transfer widget
+
+	// Steps
+	mWaitingWidgets = new QHBoxLayout;
+	mWaitingWidgets->addStretch (1);
+	
+	mTransferingProgressBar = new QProgressBar;
+
+	mFinishedStatus = new QLabel;
+
+	mStepsLayout = new QHBoxLayout;
+	mStepsLayout->addLayout (mWaitingWidgets);
+	mStepsLayout->addWidget (mTransferingProgressBar);
+	mStepsLayout->addWidget (mFinishedStatus);
+
+	// Button
+	mCloseAbortButton = new QPushButton;
+	mCloseAbortButton->setIcon (appIcons.closeAbortIcon ());
+	mCloseAbortButton->setToolTip ("Close connection");
+
+	// Main layout
+	mMainLayout = new QHBoxLayout;
+	mMainLayout->addWidget (mTransferTypeIcon);
+	mMainLayout->addWidget (mFileDescr);
+	mMainLayout->addLayout (mStepsLayout, 1);
+	mMainLayout->addWidget (mCloseAbortButton);
+
+	// Frame
+	setFrameStyle (QFrame::StyledPanel | QFrame::Raised);
+	setLayout (mMainLayout);
+
+	// Connections
+
+}
+
+InTransferWidget::InTransferWidget () : TransferWidget () {
+	// Set icon of label
+	int size = mTransferTypeIcon->sizeHint ().height ();
+	mTransferTypeIcon->setPixmap (appIcons.inboundIcon ().pixmap (size));
+
+	// Add accept button to waiting widget
+	mAcceptButton = new QPushButton;
+	mAcceptButton->setIcon (appIcons.acceptIcon ());
+	mAcceptButton->setToolTip ("Accept connection");
+
+	mWaitingWidgets->addWidget (mAcceptButton);
+}
+
+OutTransferWidget::OutTransferWidget () : TransferWidget () {
+	// Set icon of label
+	int size = mTransferTypeIcon->sizeHint ().height ();
+	mTransferTypeIcon->setPixmap (appIcons.outboundIcon ().pixmap (size));
+}

@@ -36,7 +36,9 @@ class MainWindow : public QWidget {
 		void createMainWindow (void);
 
 
-		QLineEdit * mHeaderFilterTextEdit;		
+		QLineEdit * mHeaderFilterTextEdit;
+		QPushButton * mHeaderAddButton;
+		QPushButton * mHeaderSettingsButton;
 
 		QHBoxLayout * mHeaderHbox;
 
@@ -89,16 +91,58 @@ class PeerWidget : public QGroupBox {
 		PeerWidget (PeerHandler * peer);
 
 	private:
+
+		QLabel * mPeerNetworkInfo;
+
+		QVBoxLayout * mLayout;
 };
 
+/*
+ * Transfer widget
+ */
+
 class TransferWidget : public QFrame {
-	// Base class.
+	public:
+		TransferWidget ();
+
+	protected:
+
+		TransferHandler * mTransferHandler;
+
+		// Left info
+		QLabel * mTransferTypeIcon;
+		QLabel * mFileDescr;
+
+		// Steps
+		QHBoxLayout * mWaitingWidgets;
+		
+		QProgressBar * mTransferingProgressBar;
+		
+		QLabel * mFinishedStatus;
+
+		QHBoxLayout * mStepsLayout;
+
+		// Right
+		QPushButton * mCloseAbortButton;
+
+		QHBoxLayout * mMainLayout;
+
+		// Private functions
+			
 };
 
 class InTransferWidget : public TransferWidget {
+	public:
+		InTransferWidget ();
+		
+	private:
+		// Additionnal widgets
+		QPushButton * mAcceptButton;
 };
 
 class OutTransferWidget : public TransferWidget {
+	public:
+		OutTransferWidget ();
 };
 
 #endif
