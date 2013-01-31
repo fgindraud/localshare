@@ -47,7 +47,7 @@ void MainWindow::createMainWindow (void) {
 
 	// Window setup
 	setLayout (mMainVbox);
-	setWindowFlags (Qt::Tool);
+	setWindowFlags (Qt::Window);
 	setWindowTitle (APP_NAME);
 }
 
