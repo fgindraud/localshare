@@ -1,1 +1,8 @@
-Use avahi for service discovery
+LocalShare
+
+Local file sharing service.
+
+To compile :
+$ qmake
+$ make
+

@@ -1,0 +1,3 @@
+[submodule "qtzeroconf"]
+	path = qtzeroconf
+	url = https://github.com/johanneshilden/qtzeroconf.git
