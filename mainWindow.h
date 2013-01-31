@@ -27,9 +27,6 @@ class MainWindow : public QWidget {
 				ZeroconfHandler * discoveryHandler,
 				TrayIcon * trayIcon);
 
-		void closeEvent (QCloseEvent * event);
-		void changeEvent (QEvent * event);
-
 	public slots:
 		void toggled (void);
 

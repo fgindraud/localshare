@@ -49,22 +49,10 @@ void MainWindow::createMainWindow (void) {
 	setLayout (mMainVbox);
 	setWindowFlags (Qt::Window);
 	setWindowTitle (APP_NAME);
+	setAttribute (Qt::WA_DeleteOnClose, false); // minimize to tray
 	show ();
 }
 
-void MainWindow::closeEvent (QCloseEvent * event) {
-	// Avoid window closure
-	event->ignore ();
-
-	// Hide window instead
-	hide ();
-}
-
-void MainWindow::changeEvent (QEvent * event) {
-	QWidget::changeEvent (event);
-	if (event->type () == QEvent::WindowStateChange && isMinimized ())
-		hide ();
-}
 
 void MainWindow::toggled (void) {
 	if (isVisible ())
@@ -176,7 +164,7 @@ TransferWidget::TransferWidget () : QFrame () {
 	// Left
 	mTransferTypeIcon = new QLabel;
 	mTransferTypeIcon->setAlignment (Qt::AlignHCenter | Qt::AlignVCenter);
-	mTransferTypeIcon->setMargin (2);
+	mTransferTypeIcon->setMargin (1);
 
 	mFileDescr = new QLabel; //TODO get from transfer widget
 
