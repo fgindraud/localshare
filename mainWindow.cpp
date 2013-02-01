@@ -11,10 +11,10 @@ MainWindow::MainWindow (Settings & settings,
 	QObject::connect (trayIcon, SIGNAL (mainWindowToggled ()),
 			this, SLOT (toggled ()));
 
-	QObject::connect (discoveryHandler, SIGNAL (addPeer (ZeroconfPeer)),
-			mPeerList, SLOT (addPeer (ZeroconfPeer)));
+	QObject::connect (discoveryHandler, SIGNAL (addPeer (ZeroconfPeer &)),
+			mPeerList, SLOT (addPeer (ZeroconfPeer &)));
 
-	QObject::connect (discoveryHandler, SIGNAL (removePeer (QString)),
+	QObject::connect (discoveryHandler, SIGNAL (removePeer (QString &)),
 			mPeerList, SLOT (removePeer (QString &)));
 
 	QObject::connect (mHeaderFilterTextEdit, SIGNAL (textChanged (const QString &)),
@@ -90,7 +90,7 @@ PeerListWidget::PeerListWidget () {
 	setHorizontalScrollBarPolicy (Qt::ScrollBarAlwaysOff);
 }
 
-void PeerListWidget::addPeer (ZeroconfPeer peer) {
+void PeerListWidget::addPeer (ZeroconfPeer & peer) {
 	// Insert new peer in alphabetical order
 	for (int i = 0; i < mPeerList.size (); ++i) {
 		QString tested = mPeerList.at (i)->name;

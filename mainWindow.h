@@ -70,7 +70,7 @@ class PeerListWidget : public QScrollArea {
 		PeerListWidget ();
 
 	public slots:
-		void addPeer (ZeroconfPeer peer);
+		void addPeer (ZeroconfPeer & peer);
 		void removePeer (QString & peer);
 
 		void filterPeers (const QString & namePart);

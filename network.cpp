@@ -30,7 +30,8 @@ void ZeroconfHandler::internalAddPeer (QString name) {
 
 	// Add peer if valid and not us
 	if (entry.isValid () && name != mName) {
-		emit addPeer (ZeroconfPeer (name, entry));
+		ZeroconfPeer newPeer (name, entry);
+		emit addPeer (newPeer);
 	}
 }
 

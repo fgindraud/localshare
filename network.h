@@ -39,8 +39,8 @@ class ZeroconfHandler : public QObject {
 		void start (void);
 
 	signals:
-		void addPeer (ZeroconfPeer);
-		void removePeer (QString);
+		void addPeer (ZeroconfPeer &);
+		void removePeer (QString &);
 
 	public slots:
 		// Not implemented yet
