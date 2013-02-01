@@ -15,7 +15,10 @@ MainWindow::MainWindow (Settings & settings,
 			mPeerList, SLOT (addPeer (ZeroconfPeer)));
 
 	QObject::connect (discoveryHandler, SIGNAL (removePeer (QString)),
-			mPeerList, SLOT (removePeer (QString)));
+			mPeerList, SLOT (removePeer (QString &)));
+
+	QObject::connect (mHeaderFilterTextEdit, SIGNAL (textChanged (const QString &)),
+			mPeerList, SLOT (filterPeers (const QString &)));
 }
 
 void MainWindow::createMainWindow (void) {
@@ -64,13 +67,12 @@ void MainWindow::toggled (void) {
 /* ------ PeerHandler ------ */
 
 void PeerHandler::setView (PeerWidget * widget) {
-	if (view == 0)
-		view = widget;
+	if (mView == 0)
+		mView = widget;
 }
 
-void PeerHandler::deleteView (void) {
-	if (view != 0)
-		view->deleteLater ();
+QWidget * PeerHandler::view (void) {
+	return mView;
 }
 
 /* ------ PeerListWidget ----- */
@@ -117,19 +119,31 @@ void PeerListWidget::addPeerInternal (int index, ZeroconfPeer & peer) {
 	mScrollInternalLayout->insertWidget (index, widget);
 }
 
-void PeerListWidget::removePeer (QString peer) {
-	for (int i = 0; i < mPeerList.size (); ++i) {
-		PeerHandler * peerHandler = mPeerList[i];
+void PeerListWidget::removePeer (QString & peer) {
+	for (PeerList::iterator it = mPeerList.begin (); it != mPeerList.end (); ++it) {
+		PeerHandler * peerHandler = *it;
 		if (peerHandler->name == peer) {
 			// Delete view
-			peerHandler->deleteView ();
+			peerHandler->view ()->deleteLater ();
 
 			// Delete it from list
-			mPeerList.removeAt (i);
+			mPeerList.erase (it);
 			delete peerHandler;
 
 			return;
 		}
+	}
+}
+
+void PeerListWidget::filterPeers (const QString & namePart) {
+	for (PeerList::iterator it = mPeerList.begin (); it != mPeerList.end (); ++it) {
+		PeerHandler * peerHandler = *it;
+		
+		// Show only matching peers
+		if (peerHandler->name.contains (namePart, Qt::CaseInsensitive))
+			peerHandler->view ()->show ();
+		else
+			peerHandler->view ()->hide ();
 	}
 }
 

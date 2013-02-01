@@ -48,14 +48,14 @@ class MainWindow : public QWidget {
 class PeerHandler : public ZeroconfPeer {
 	public:
 		PeerHandler (ZeroconfPeer & peerBase) :
-			ZeroconfPeer (peerBase), view (0)
+			ZeroconfPeer (peerBase), mView (0)
 		{}
 		
 		void setView (PeerWidget * widget);
-		void deleteView (void);
+		QWidget * view (void);
 
 	private:
-		PeerWidget * view;
+		PeerWidget * mView;
 
 		// Nothing yet
 		// TODO list of connections, etc
@@ -71,7 +71,9 @@ class PeerListWidget : public QScrollArea {
 
 	public slots:
 		void addPeer (ZeroconfPeer peer);
-		void removePeer (QString peer);
+		void removePeer (QString & peer);
+
+		void filterPeers (const QString & namePart);
 	
 	private:
 		void addPeerInternal (int index, ZeroconfPeer & peer);
