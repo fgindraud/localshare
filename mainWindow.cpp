@@ -136,9 +136,7 @@ void PeerListWidget::removePeer (QString & peer) {
 }
 
 void PeerListWidget::filterPeers (const QString & namePart) {
-	for (PeerList::iterator it = mPeerList.begin (); it != mPeerList.end (); ++it) {
-		PeerHandler * peerHandler = *it;
-		
+	foreach (PeerHandler * peerHandler, mPeerList) {
 		// Show only matching peers
 		if (peerHandler->name.contains (namePart, Qt::CaseInsensitive))
 			peerHandler->view ()->show ();

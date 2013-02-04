@@ -30,8 +30,11 @@ QString Settings::name (void) const {
 		QProcessEnvironment env = QProcessEnvironment::systemEnvironment ();
 		for (QStringList::const_iterator it = candidates.constBegin (); 
 			it != candidates.constEnd (); ++it)
-			if (env.contains (*it))
-				return env.value (*it);
+			if (env.contains (*it)) {
+				QString name = env.value (*it);
+				name.truncate (NAME_SIZE_LIMIT);
+				return name;
+			}
 
 		// Or return default if not found
 		return "Unknown";

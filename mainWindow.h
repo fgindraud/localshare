@@ -56,9 +56,6 @@ class PeerHandler : public ZeroconfPeer {
 
 	private:
 		PeerWidget * mView;
-
-		// Nothing yet
-		// TODO list of connections, etc
 };
 
 class PeerListWidget : public QScrollArea {

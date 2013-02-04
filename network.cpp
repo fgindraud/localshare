@@ -42,10 +42,40 @@ void ZeroconfHandler::internalRemovePeer (QString name) {
 /* ------ Tcp server ----- */
 
 TcpServer::TcpServer (Settings & settings) : QTcpServer () {
+	// Start server
 	if (not listen (QHostAddress::Any, settings.tcpPort ()))
 		Message::error ("Tcp server",
 				"Tcp server error : " + errorString ());
 
-	// connect internal signal
+	// Connect internal callback
+	QObject::connect (this, SIGNAL (newConnection ()),
+			this, SLOT (handleNewConnectionInternal ()));
+}
+
+TcpServer::~TcpServer () {
+	// Kill pending connections
+	foreach (TransferHandler * p, mWaitingForHeaderConnections) {
+		delete p;
+	}
+}
+
+void TcpServer::handleNewConnectionInternal (void) {
+	QTcpSocket * tmp;
+	while ((tmp = nextPendingConnection ()) != 0)
+		mWaitingForHeaderConnections.append (new TransferHandler (tmp));
+}
+
+void TcpServer::handlerInitComplete (TransferHandler * handler) {
+	mWaitingForHeaderConnections.removeOne (handler);
+}
+
+/* ------ Connection handler ------ */
+
+TransferHandler::TransferHandler (QTcpSocket * socket) : mStep (Init), mSocket (socket) {
+	// Add internal handler binding
+}
+
+TransferHandler::~TransferHandler () {
+	delete mSocket;
 }
 
