@@ -10,7 +10,7 @@
  */
 class Settings {
 	public:
-		/* network settings */
+		/* Network settings */
 		static QString name (void);
 		static QString defaultName (void);
 		static void setName (QString & name);
@@ -19,7 +19,7 @@ class Settings {
 		static quint16 defaultTcpPort (void);
 		static void setTcpPort (quint16 port);
 
-		/* download path/confirmation settings */
+		/* Download path/confirmation settings */
 		static QString downloadPath (void);
 		static QString defaultDownloadPath (void);
 		static void setDownloadPath (const QString & path);
@@ -27,6 +27,11 @@ class Settings {
 		static bool alwaysDownload (void);
 		static bool defaultAlwaysDownload (void);
 		static void setAlwaysDownload (bool always);
+
+		/* Use system tray */
+		static bool useSystemTray (void);
+		static bool defaultUseSystemTray (void);
+		static void setUseSystemTray (bool use);
 
 	private:
 		// Internal instance
@@ -64,7 +69,6 @@ class Message {
 /*
  * Icon settings for the application
  */
-
 class Icon {
 	public:
 		// Application icon

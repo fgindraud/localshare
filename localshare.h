@@ -7,12 +7,12 @@
 /*
  * Application name for printing
  */
-#define APP_NAME "LocalShare"
+#define APP_NAME "localshare"
 
 /*
  * Network name size limit
  */
-#define NAME_SIZE_LIMIT (300)
+#define NAME_SIZE_LIMIT 300
 
 /*
  * Default tcp port for communication

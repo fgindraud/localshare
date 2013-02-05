@@ -12,6 +12,7 @@ static const QString networkNameKey ("network/name");
 static const QString networkTcpPortKey ("network/tcpPort");
 static const QString downloadPathKey ("download/path");
 static const QString alwaysDownladKey ("download/alwaysAccept");
+static const QString useSystemTrayKey ("gui/useSystemTray");
 
 /*
  * network/name
@@ -81,6 +82,23 @@ bool Settings::alwaysDownload (void) {
 
 void Settings::setAlwaysDownload (bool always) {
 	settings.setValue (alwaysDownladKey, always);
+}
+
+/*
+ * gui/useSystemTray
+ */
+static void useSystemTrayPostProcessor (bool & enabled) {
+	enabled = enabled && QSystemTrayIcon::isSystemTrayAvailable ();
+}
+
+bool Settings::defaultUseSystemTray (void) { return true; }
+
+bool Settings::useSystemTray (void) {
+	return getValueCached (useSystemTrayKey, defaultUseSystemTray, useSystemTrayPostProcessor);
+}
+
+void Settings::setUseSystemTray (bool enabled) {
+	settings.setValue (useSystemTrayKey, enabled);
 }
 
 /* ----- Message ----- */
