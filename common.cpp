@@ -3,6 +3,9 @@
 
 #include <QMessageBox>
 #include <QProcessEnvironment>
+#include <QSystemTrayIcon>
+#include <QApplication>
+#include <QDir>
 
 /* ----- Settings ----- */
 

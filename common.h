@@ -1,9 +1,11 @@
 #ifndef H_COMMON
 #define H_COMMON
 
-#include <QtCore>
+#include <QString>
 #include <QHostAddress>
 #include <QCommonStyle>
+#include <QIcon>
+#include <QSettings>
 
 /*
  * Handle program settings, and defaults values
