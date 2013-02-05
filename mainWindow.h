@@ -15,6 +15,7 @@
 class PeerListWidget;
 class PeerWidget;
 class TransferWidget;
+class WaitingForTransferFileWidget;
 
 class InTransferWidget;
 class OutTransferWidget;
@@ -30,6 +31,9 @@ class MainWindow : public QWidget {
 	public slots:
 		void toggled (void);
 
+	private slots:
+		void addFiles (void);
+
 	private:
 		void createMainWindow (void);
 
@@ -40,9 +44,36 @@ class MainWindow : public QWidget {
 
 		QHBoxLayout * mHeaderHbox;
 
+		QVBoxLayout * mWaitingFileList;
+
 		PeerListWidget * mPeerList;
 
 		QVBoxLayout * mMainVbox;
+};
+
+class WaitingForTransferFileWidget : public QFrame {
+	Q_OBJECT
+
+	public:
+		WaitingForTransferFileWidget (const QString & file);
+
+	protected:
+		void mousePressEvent (QMouseEvent * event);
+		void mouseMoveEvent (QMouseEvent * event);
+
+	private:
+		// Drag & drop info
+		QPoint startDragPos;
+
+		// Hold info
+		QString fileName;
+
+		// Gui
+		QLabel * mFileIconLabel;
+		QLabel * mFileDescrLabel;
+		QPushButton * mDeleteFile;
+
+		QHBoxLayout * mLayout;
 };
 
 class PeerHandler : public ZeroconfPeer {
@@ -86,6 +117,10 @@ class PeerWidget : public QGroupBox {
 
 	public:
 		PeerWidget (PeerHandler * peer);
+
+	protected:
+		void dragEnterEvent (QDragEnterEvent * event);
+		void dropEvent (QDropEvent * event);
 
 	private:
 

@@ -19,6 +19,9 @@ MainWindow::MainWindow (Settings & settings,
 
 	QObject::connect (mHeaderFilterTextEdit, SIGNAL (textChanged (const QString &)),
 			mPeerList, SLOT (filterPeers (const QString &)));
+
+	QObject::connect (mHeaderAddButton, SIGNAL (clicked ()),
+			this, SLOT (addFiles ()));
 }
 
 void MainWindow::createMainWindow (void) {
@@ -40,12 +43,16 @@ void MainWindow::createMainWindow (void) {
 	mHeaderHbox->addWidget (mHeaderAddButton);
 	mHeaderHbox->addWidget (mHeaderSettingsButton);
 
+	// File list
+	mWaitingFileList = new QVBoxLayout;
+
 	// Peer list
 	mPeerList = new PeerListWidget;
 
 	// Main vbox
 	mMainVbox = new QVBoxLayout;
 	mMainVbox->addLayout (mHeaderHbox);
+	mMainVbox->addLayout (mWaitingFileList);
 	mMainVbox->addWidget (mPeerList, 1);
 
 	// Window setup
@@ -56,12 +63,76 @@ void MainWindow::createMainWindow (void) {
 	show ();
 }
 
+void MainWindow::addFiles (void) {
+	QStringList addedFiles = QFileDialog::getOpenFileNames (this);
+
+	foreach (QString file, addedFiles)
+		mWaitingFileList->addWidget (new WaitingForTransferFileWidget (file));
+}
 
 void MainWindow::toggled (void) {
 	if (isVisible ())
 		hide ();
 	else
 		show ();
+}
+
+/* ------ File waiting ------ */
+
+WaitingForTransferFileWidget::WaitingForTransferFileWidget (const QString & file) {
+	// Save file info
+	fileName = file;
+	
+	// Create widget
+	mFileIconLabel = new QLabel;
+	int size = mFileIconLabel->sizeHint ().height ();
+	mFileIconLabel->setPixmap (appIcons.waitingFileIcon ().pixmap (size));
+
+	quint64 fileSize = QFileInfo (file).size ();
+	QString description = QString ("%1 [%2]").arg (file, fileSizeToString (fileSize));
+	mFileDescrLabel = new QLabel (description);
+
+	mDeleteFile = new QPushButton;
+	mDeleteFile->setIcon (appIcons.closeAbortIcon ());
+
+	mLayout = new QHBoxLayout;
+	mLayout->addWidget (mFileIconLabel);
+	mLayout->addWidget (mFileDescrLabel, 1);
+	mLayout->addWidget (mDeleteFile);
+
+	setLayout (mLayout);
+	setFrameStyle (QFrame::StyledPanel | QFrame::Raised);
+
+	// Add delete handler
+	QObject::connect (mDeleteFile, SIGNAL (clicked ()),
+			this, SLOT (deleteLater ()));
+}
+		
+void WaitingForTransferFileWidget::mousePressEvent (QMouseEvent * event) {
+	if (event->button () == Qt::LeftButton)
+		startDragPos = event->pos ();
+}
+
+void WaitingForTransferFileWidget::mouseMoveEvent (QMouseEvent * event) {
+	// Stop if not relevant
+	if (not (event->buttons () & Qt::LeftButton))
+		return;
+	if ((event->pos () - startDragPos).manhattanLength () < QApplication::startDragDistance ())
+		return;
+
+	// Build drag info
+	QList< QUrl > url;
+	url << QUrl ().fromLocalFile (fileName);
+
+	QMimeData * mimeData = new QMimeData;
+	mimeData->setUrls (url);
+
+	QDrag * drag = new QDrag (this);
+	drag->setMimeData (mimeData);
+	drag->setPixmap (appIcons.waitingFileIcon ().pixmap (32));
+
+	// Drag
+	drag->exec (Qt::CopyAction);
 }
 
 /* ------ PeerHandler ------ */
@@ -168,6 +239,28 @@ PeerWidget::PeerWidget (PeerHandler * peer) :
 		.arg (peer->hostname);
 	setTitle (peerNetworkInfo);
 	setLayout (mLayout);
+	setAcceptDrops (true);
+}
+
+void PeerWidget::dragEnterEvent (QDragEnterEvent * event) {
+	if (event->mimeData ()->hasUrls ())
+		event->acceptProposedAction ();
+}
+
+void PeerWidget::dropEvent (QDropEvent * event) {
+	if (event->mimeData ()->hasUrls ()) {
+		foreach (QUrl url, event->mimeData ()->urls ()) {
+			if (url.isLocalFile ()) {
+				// Retrieve only local files
+				QString path = url.toLocalFile ();
+				
+				// For now, just qdebug ()
+				qDebug () << "DropEvent :" << path;
+			}
+		}
+
+		event->acceptProposedAction ();
+	}
 }
 
 /* ------ Transfer widget ------ */

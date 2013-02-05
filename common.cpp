@@ -112,6 +112,10 @@ QIcon IconFactory::appIcon (void) {
 	return QIcon (":/icon.svg");
 }
 
+QIcon IconFactory::waitingFileIcon (void) {
+	return style->standardIcon (QStyle::SP_FileIcon);
+}
+
 QIcon IconFactory::fileIcon (void) {
 	return style->standardIcon (QStyle::SP_DirIcon);
 }
@@ -134,4 +138,20 @@ QIcon IconFactory::outboundIcon (void) {
 }
 
 IconFactory appIcons;
+
+/* ------ File size ------ */
+QString fileSizeToString (quint64 size) {
+	double num = size;
+	QStringList list;
+	list << "Kio" << "Mio" << "Gio" << "Tio";
+
+	QStringListIterator i (list);
+	QString unit ("o");
+
+	while (num >= 1024.0 && i.hasNext ()) {
+		unit = i.next ();
+		num /= 1024.0;
+	}
+	return QString ().setNum (num, 'f', 2) + unit;
+}
 

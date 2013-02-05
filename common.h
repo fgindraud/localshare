@@ -48,6 +48,8 @@ class IconFactory {
 
 		QIcon appIcon (void);
 
+		QIcon waitingFileIcon (void);
+
 		QIcon fileIcon (void);
 		QIcon settingsIcon (void);
 
@@ -62,6 +64,11 @@ class IconFactory {
 };
 
 extern IconFactory appIcons;
+
+/*
+ * File size
+ */
+QString fileSizeToString (quint64 size);
 
 #endif
 
