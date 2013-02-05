@@ -14,16 +14,14 @@ int main (int argc, char *argv[]) {
 	if (QSystemTrayIcon::isSystemTrayAvailable ()) {
 		programWideSettingsInit (app);
 
-		Settings settings;
-
 		// Network discovery
-		ZeroconfHandler networkDiscoveryHandler (settings);
+		ZeroconfHandler networkDiscoveryHandler;
 
 		// Create tray icon, and show it.
 		TrayIcon trayIcon;
 		
 		// Main window
-		MainWindow mainWindow (settings, &networkDiscoveryHandler, &trayIcon);
+		MainWindow mainWindow (&networkDiscoveryHandler, &trayIcon);
 		
 		// Start discovery
 		networkDiscoveryHandler.start ();
@@ -48,6 +46,6 @@ void programWideSettingsInit (QApplication & app) {
 	app.setQuitOnLastWindowClosed (false);
 
 	// Icon
-	app.setWindowIcon (appIcons.appIcon ());
+	app.setWindowIcon (Icon::app ());
 }
 

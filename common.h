@@ -8,25 +8,49 @@
 /*
  * Handle program settings, and defaults values
  */
-class Settings : private QSettings {
+class Settings {
 	public:
-		Settings ();
-
 		/* network settings */
-		QString name (void) const;
-		void setName (QString & name);
+		static QString name (void);
+		static QString defaultName (void);
+		static void setName (QString & name);
 
-		quint16 tcpPort (void) const;
-		void setTcpPort (quint16 port);
+		static quint16 tcpPort (void);
+		static quint16 defaultTcpPort (void);
+		static void setTcpPort (quint16 port);
 
 		/* download path/confirmation settings */
-		QString downloadPath (void) const;
-		void setDownloadPath (const QString & path);
+		static QString downloadPath (void);
+		static QString defaultDownloadPath (void);
+		static void setDownloadPath (const QString & path);
 
-		bool alwaysDownload (void) const;
-		void setAlwaysDownload (bool always);
+		static bool alwaysDownload (void);
+		static bool defaultAlwaysDownload (void);
+		static void setAlwaysDownload (bool always);
+
+	private:
+		// Internal instance
+		static QSettings settings;
+
+		// Used to make settings accessors
+		template< typename T >
+		static T getValueCached (
+			const QString & key,
+			T (*defaultFactory) (void),
+			void (*postProcessor) (T &) = 0
+		) {
+			// Cache value if not already done
+			if (not settings.contains (key))
+				settings.setValue (key, defaultFactory ());
+			// Get value
+			T value = settings.value (key).value<T> ();
+			// Post process it if needed
+			if (postProcessor != 0)
+				postProcessor (value);
+			// Return it
+			return value;
+		}
 };
-
 
 /*
  * Error messages
@@ -38,35 +62,35 @@ class Message {
 };
 
 /*
- * Icons
+ * Icon settings for the application
  */
 
-class IconFactory {
+class Icon {
 	public:
-		IconFactory ();
-		~IconFactory ();
+		// Application icon
+		static QIcon app (void);
 
-		QIcon appIcon (void);
+		// Represents a file
+		static QIcon file (void);
 
-		QIcon waitingFileIcon (void);
+		// Open file & Settings dialog buttons
+		static QIcon openFile (void);
+		static QIcon settings (void);
 
-		QIcon fileIcon (void);
-		QIcon settingsIcon (void);
+		// Accept and refuse/close icon
+		static QIcon accept (void);
+		static QIcon closeAbort (void);
 
-		QIcon acceptIcon (void);
-		QIcon closeAbortIcon (void);
-
-		QIcon inboundIcon (void);
-		QIcon outboundIcon (void);
+		// In/out-bound transfer icons
+		static QIcon inbound (void);
+		static QIcon outbound (void);
 
 	private:
-		QStyle * style;
+		static QCommonStyle style;
 };
 
-extern IconFactory appIcons;
-
 /*
- * File size
+ * File size pretty printer
  */
 QString fileSizeToString (quint64 size);
 

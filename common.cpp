@@ -6,86 +6,81 @@
 
 /* ----- Settings ----- */
 
-Settings::Settings () : QSettings (APP_NAME, APP_NAME) {
-}
+QSettings Settings::settings (APP_NAME, APP_NAME);
+
+static const QString networkNameKey ("network/name");
+static const QString networkTcpPortKey ("network/tcpPort");
+static const QString downloadPathKey ("download/path");
+static const QString alwaysDownladKey ("download/alwaysAccept");
 
 /*
  * network/name
  * Peer name on the network
  */
-static const QString networkNameKey ("network/name");
 
-QString Settings::name (void) const {
-	if (contains (networkNameKey)) {
-		// Get it from config
-		QString tmp = value (networkNameKey).toString ();
-		tmp.truncate (NAME_SIZE_LIMIT);
-		return tmp;
-	} else {
-		QStringList candidates;
-		// Try to get username from classical env variables
-		candidates << "USER" << "USERNAME";
-		candidates << "HOSTNAME";
-		
-		QProcessEnvironment env = QProcessEnvironment::systemEnvironment ();
-		for (QStringList::const_iterator it = candidates.constBegin (); 
-			it != candidates.constEnd (); ++it)
-			if (env.contains (*it)) {
-				QString name = env.value (*it);
-				name.truncate (NAME_SIZE_LIMIT);
-				return name;
-			}
+static void namePostProcessor (QString & str) { str.truncate (NAME_SIZE_LIMIT); }
 
-		// Or return default if not found
-		return "Unknown";
-	}
+QString Settings::defaultName (void) {
+	QStringList candidates;
+	// Try to get a username from classical env variables
+	candidates << "USER" << "USERNAME";
+	candidates << "HOSTNAME";
+
+	QProcessEnvironment env = QProcessEnvironment::systemEnvironment ();
+	foreach (QString key, candidates)
+		if (env.contains (key))
+			return env.value (key);
+
+	// Or return default if not found
+	return "Unknown";
 }
 
-void Settings::setName (QString & name) {
-	name.truncate (NAME_SIZE_LIMIT);
-	setValue (networkNameKey, name);
+QString Settings::name (void) {
+	return getValueCached (networkNameKey, defaultName, namePostProcessor);
 }
+
+void Settings::setName (QString & name) { settings.setValue (networkNameKey, name); }
 
 /*
  * network/tcpPort
  * Opened tcp port (default is in localshare.h)
  */
-static const QString networkTcpPortKey ("network/tcpPort");
+quint16 Settings::defaultTcpPort (void) { return DEFAULT_TCP_PORT; }
 
-quint16 Settings::tcpPort (void) const {
-	return static_cast<quint16> (value (networkTcpPortKey, DEFAULT_TCP_PORT).toUInt ());
+quint16 Settings::tcpPort (void) {
+	return getValueCached (networkTcpPortKey, defaultTcpPort);
 }
 
 void Settings::setTcpPort (quint16 port) {
-	setValue (networkTcpPortKey, static_cast<uint> (port));
+	settings.setValue (networkTcpPortKey, port);
 }
 
 /*
  * download/path
  * Path to where files are stored (default = homepath)
  */
-static const QString downloadPathKey ("download/path");
+QString Settings::defaultDownloadPath (void) { return QDir::homePath (); }
 
-QString Settings::downloadPath (void) const {
-	return value (downloadPathKey, QDir::homePath ()).toString ();
+QString Settings::downloadPath (void) {
+	return getValueCached (downloadPathKey, defaultDownloadPath);
 }
 
 void Settings::setDownloadPath (const QString & path) {
-	setValue (downloadPathKey, path);
+	settings.setValue (downloadPathKey, path);
 }
 
 /*
  * download/alwaysAccept
  * Automatically accepts all file proposals (defaults to false)
  */
-static const QString alwaysDownladKey ("download/alwaysAccept");
+bool Settings::defaultAlwaysDownload (void) { return false; }
 
-bool Settings::alwaysDownload (void) const {
-	return value (alwaysDownladKey, false).toBool ();
+bool Settings::alwaysDownload (void) {
+	return getValueCached (alwaysDownladKey, defaultAlwaysDownload);
 }
 
 void Settings::setAlwaysDownload (bool always) {
-	setValue (alwaysDownladKey, always);
+	settings.setValue (alwaysDownladKey, always);
 }
 
 /* ----- Message ----- */
@@ -105,52 +100,36 @@ void Message::warning (const QString & title, const QString & message) {
 
 /* ------ Icons ------ */
 
-IconFactory::IconFactory () { style = new QCommonStyle; } 
-IconFactory::~IconFactory () { delete style; }
+QIcon Icon::app (void) { return QIcon (":/icon.svg"); }
 
-QIcon IconFactory::appIcon (void) {
-	return QIcon (":/icon.svg");
-}
+QIcon Icon::file (void) { return style.standardIcon (QStyle::SP_FileIcon); }
 
-QIcon IconFactory::waitingFileIcon (void) {
-	return style->standardIcon (QStyle::SP_FileIcon);
-}
+QIcon Icon::openFile (void) { return style.standardIcon (QStyle::SP_DirIcon); }
+QIcon Icon::settings (void) { return style.standardIcon (QStyle::SP_ComputerIcon); }
 
-QIcon IconFactory::fileIcon (void) {
-	return style->standardIcon (QStyle::SP_DirIcon);
-}
-QIcon IconFactory::settingsIcon (void) {
-	return style->standardIcon (QStyle::SP_ComputerIcon);
-}
+QIcon Icon::accept (void) { return style.standardIcon (QStyle::SP_DialogOkButton); }
+QIcon Icon::closeAbort (void) { return style.standardIcon (QStyle::SP_DialogCancelButton); }
 
-QIcon IconFactory::acceptIcon (void) {
-	return style->standardIcon (QStyle::SP_DialogOkButton);
-}
-QIcon IconFactory::closeAbortIcon (void) {
-	return style->standardIcon (QStyle::SP_DialogCancelButton);
-}
+QIcon Icon::inbound (void) { return style.standardIcon (QStyle::SP_ArrowDown); }
+QIcon Icon::outbound (void) { return style.standardIcon (QStyle::SP_ArrowUp); }
 
-QIcon IconFactory::inboundIcon (void) {
-	return style->standardIcon (QStyle::SP_ArrowDown);
-}
-QIcon IconFactory::outboundIcon (void) {
-	return style->standardIcon (QStyle::SP_ArrowUp);
-}
-
-IconFactory appIcons;
+QCommonStyle Icon::style;
 
 /* ------ File size ------ */
+
 QString fileSizeToString (quint64 size) {
 	double num = size;
 	QStringList list;
-	list << "Kio" << "Mio" << "Gio" << "Tio";
+
+	double increment = 1024.0;
+	list << "kio" << "Mio" << "Gio" << "Tio";
 
 	QStringListIterator i (list);
 	QString unit ("o");
 
-	while (num >= 1024.0 && i.hasNext ()) {
+	while (num >= increment && i.hasNext ()) {
 		unit = i.next ();
-		num /= 1024.0;
+		num /= increment;
 	}
 	return QString ().setNum (num, 'f', 2) + unit;
 }

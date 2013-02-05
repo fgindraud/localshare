@@ -2,11 +2,7 @@
 
 /* ------ Zeroconf ----- */
 
-ZeroconfHandler::ZeroconfHandler (Settings & settings) :
-	mBrowser (), mService (),
-	mName (settings.name ()),
-	mPort (settings.tcpPort ())
-{
+ZeroconfHandler::ZeroconfHandler () : mBrowser (), mService () {
 	QObject::connect (&mBrowser, SIGNAL (serviceEntryAdded (QString)),
 			this, SLOT (internalAddPeer (QString)));
 	QObject::connect (&mBrowser, SIGNAL (serviceEntryRemoved (QString)),
@@ -15,21 +11,17 @@ ZeroconfHandler::ZeroconfHandler (Settings & settings) :
 
 void ZeroconfHandler::start (void) {
 	// Service declaration
-	mService.registerService (mName, mPort, AVAHI_SERVICE_NAME);
+	mService.registerService (Settings::name (), Settings::tcpPort (), AVAHI_SERVICE_NAME);
 
 	// Start service browsing
 	mBrowser.browse (AVAHI_SERVICE_NAME);
-}
-
-void ZeroconfHandler::settingsChanged (void) {
-	qDebug () << "Not implemented";
 }
 
 void ZeroconfHandler::internalAddPeer (QString name) {
 	ZConfServiceEntry entry = mBrowser.serviceEntry (name);
 
 	// Add peer if valid and not us
-	if (entry.isValid () && name != mName) {
+	if (entry.isValid () && name != Settings::name ()) {
 		ZeroconfPeer newPeer (name, entry);
 		emit addPeer (newPeer);
 	}
@@ -41,9 +33,9 @@ void ZeroconfHandler::internalRemovePeer (QString name) {
 
 /* ------ Tcp server ----- */
 
-TcpServer::TcpServer (Settings & settings) : QTcpServer () {
+TcpServer::TcpServer () : QTcpServer () {
 	// Start server
-	if (not listen (QHostAddress::Any, settings.tcpPort ()))
+	if (not listen (QHostAddress::Any, Settings::tcpPort ()))
 		Message::error ("Tcp server",
 				"Tcp server error : " + errorString ());
 
@@ -54,7 +46,7 @@ TcpServer::TcpServer (Settings & settings) : QTcpServer () {
 
 TcpServer::~TcpServer () {
 	// Kill pending connections
-	foreach (TransferHandler * p, mWaitingForHeaderConnections) {
+	foreach (InTransferHandler * p, mWaitingForHeaderConnections) {
 		delete p;
 	}
 }
@@ -62,20 +54,26 @@ TcpServer::~TcpServer () {
 void TcpServer::handleNewConnectionInternal (void) {
 	QTcpSocket * tmp;
 	while ((tmp = nextPendingConnection ()) != 0)
-		mWaitingForHeaderConnections.append (new TransferHandler (tmp));
-}
-
-void TcpServer::handlerInitComplete (TransferHandler * handler) {
-	mWaitingForHeaderConnections.removeOne (handler);
+		mWaitingForHeaderConnections.append (new InTransferHandler (tmp));
 }
 
 /* ------ Connection handler ------ */
 
-TransferHandler::TransferHandler (QTcpSocket * socket) : mStep (Init), mSocket (socket) {
+InTransferHandler::InTransferHandler (QTcpSocket * socket) : mSocket (socket) {
 	// Add internal handler binding
+	QObject::connect (mSocket, SIGNAL (readyRead ()),
+			this, SLOT (processData ()));
+
+	// Init booleans
+	mReceivedPeerName = false;
+	mReceivedFileName = false;
+	mReceivedFileSize = false;
 }
 
-TransferHandler::~TransferHandler () {
+InTransferHandler::~InTransferHandler () {
 	delete mSocket;
+}
+
+void InTransferHandler::processData (void) {
 }
 

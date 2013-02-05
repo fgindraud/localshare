@@ -2,9 +2,7 @@
 
 /* ----- MainWindow ----- */
 
-MainWindow::MainWindow (Settings & settings,
-		ZeroconfHandler * discoveryHandler, TrayIcon * trayIcon) {
-	(void) settings; 
+MainWindow::MainWindow (ZeroconfHandler * discoveryHandler, TrayIcon * trayIcon) {
 	createMainWindow ();
 
 	// Connections
@@ -31,11 +29,11 @@ void MainWindow::createMainWindow (void) {
 
 	// Add & settings buttons
 	mHeaderAddButton = new QPushButton;
-	mHeaderAddButton->setIcon (appIcons.fileIcon ());
+	mHeaderAddButton->setIcon (Icon::openFile ());
 	mHeaderAddButton->setToolTip ("Send file...");
 
 	mHeaderSettingsButton = new QPushButton;
-	mHeaderSettingsButton->setIcon (appIcons.settingsIcon ());
+	mHeaderSettingsButton->setIcon (Icon::settings ());
 	mHeaderSettingsButton->setToolTip ("Settings");
 
 	mHeaderHbox = new QHBoxLayout;
@@ -86,14 +84,14 @@ WaitingForTransferFileWidget::WaitingForTransferFileWidget (const QString & file
 	// Create widget
 	mFileIconLabel = new QLabel;
 	int size = mFileIconLabel->sizeHint ().height ();
-	mFileIconLabel->setPixmap (appIcons.waitingFileIcon ().pixmap (size));
+	mFileIconLabel->setPixmap (Icon::file ().pixmap (size));
 
 	quint64 fileSize = QFileInfo (file).size ();
 	QString description = QString ("%1 [%2]").arg (file, fileSizeToString (fileSize));
 	mFileDescrLabel = new QLabel (description);
 
 	mDeleteFile = new QPushButton;
-	mDeleteFile->setIcon (appIcons.closeAbortIcon ());
+	mDeleteFile->setIcon (Icon::closeAbort ());
 
 	mLayout = new QHBoxLayout;
 	mLayout->addWidget (mFileIconLabel);
@@ -129,7 +127,7 @@ void WaitingForTransferFileWidget::mouseMoveEvent (QMouseEvent * event) {
 
 	QDrag * drag = new QDrag (this);
 	drag->setMimeData (mimeData);
-	drag->setPixmap (appIcons.waitingFileIcon ().pixmap (32));
+	drag->setPixmap (Icon::file ().pixmap (32));
 
 	// Drag
 	drag->exec (Qt::CopyAction);
@@ -274,21 +272,24 @@ TransferWidget::TransferWidget () : QFrame () {
 	mFileDescr = new QLabel; //TODO get from transfer widget
 
 	// Steps
-	mWaitingWidgets = new QHBoxLayout;
-	mWaitingWidgets->addStretch (1);
+	mWaitingLayout = new QHBoxLayout;
+	mWaitingLayout->addStretch (1);
+
+	mWaitingWidget = new QWidget;
+	mWaitingWidget->setLayout (mWaitingLayout);
 	
 	mTransferingProgressBar = new QProgressBar;
 
 	mFinishedStatus = new QLabel;
 
 	mStepsLayout = new QHBoxLayout;
-	mStepsLayout->addLayout (mWaitingWidgets);
+	mStepsLayout->addWidget (mWaitingWidget);
 	mStepsLayout->addWidget (mTransferingProgressBar);
 	mStepsLayout->addWidget (mFinishedStatus);
 
 	// Button
 	mCloseAbortButton = new QPushButton;
-	mCloseAbortButton->setIcon (appIcons.closeAbortIcon ());
+	mCloseAbortButton->setIcon (Icon::closeAbort ());
 	mCloseAbortButton->setToolTip ("Close connection");
 
 	// Main layout
@@ -302,27 +303,36 @@ TransferWidget::TransferWidget () : QFrame () {
 	setFrameStyle (QFrame::StyledPanel | QFrame::Raised);
 	setLayout (mMainLayout);
 
+	// Start with waiting status
+	setStatus (Waiting);
+
 	// Connections
 
+}
+
+void TransferWidget::setStatus (TransferWidget::Status status) {
+	mWaitingWidget->setVisible (status == Waiting);
+	mTransferingProgressBar->setVisible (status == Transfering);
+	mFinishedStatus->setVisible (status == Finished);
 }
 
 InTransferWidget::InTransferWidget () : TransferWidget () {
 	// Set icon of label
 	int size = mTransferTypeIcon->sizeHint ().height ();
-	mTransferTypeIcon->setPixmap (appIcons.inboundIcon ().pixmap (size));
+	mTransferTypeIcon->setPixmap (Icon::inbound ().pixmap (size));
 	mTransferTypeIcon->setToolTip ("Download");
 
 	// Add accept button to waiting widget
 	mAcceptButton = new QPushButton;
-	mAcceptButton->setIcon (appIcons.acceptIcon ());
+	mAcceptButton->setIcon (Icon::accept ());
 	mAcceptButton->setToolTip ("Accept connection");
 
-	mWaitingWidgets->addWidget (mAcceptButton);
+	mWaitingLayout->addWidget (mAcceptButton);
 }
 
 OutTransferWidget::OutTransferWidget () : TransferWidget () {
 	// Set icon of label
 	int size = mTransferTypeIcon->sizeHint ().height ();
-	mTransferTypeIcon->setPixmap (appIcons.outboundIcon ().pixmap (size));
+	mTransferTypeIcon->setPixmap (Icon::outbound ().pixmap (size));
 	mTransferTypeIcon->setToolTip ("Upload");
 }

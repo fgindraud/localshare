@@ -24,9 +24,7 @@ class MainWindow : public QWidget {
 	Q_OBJECT
 
 	public:
-		MainWindow (Settings & settings,
-				ZeroconfHandler * discoveryHandler,
-				TrayIcon * trayIcon);
+		MainWindow (ZeroconfHandler * discoveryHandler, TrayIcon * trayIcon);
 
 	public slots:
 		void toggled (void);
@@ -135,18 +133,23 @@ class PeerWidget : public QGroupBox {
 
 class TransferWidget : public QFrame {
 	public:
+		enum Status {
+			Waiting, Transfering, Finished
+		};
+
 		TransferWidget ();
 
 	protected:
 
-		TransferHandler * mTransferHandler;
+		//TransferHandler * mTransferHandler;
 
 		// Left info
 		QLabel * mTransferTypeIcon;
 		QLabel * mFileDescr;
 
 		// Steps
-		QHBoxLayout * mWaitingWidgets;
+		QWidget * mWaitingWidget;
+		QHBoxLayout * mWaitingLayout;
 		
 		QProgressBar * mTransferingProgressBar;
 		
@@ -160,7 +163,7 @@ class TransferWidget : public QFrame {
 		QHBoxLayout * mMainLayout;
 
 		// Private functions
-			
+		void setStatus (Status status);	
 };
 
 class InTransferWidget : public TransferWidget {

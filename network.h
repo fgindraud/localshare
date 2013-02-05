@@ -12,10 +12,11 @@
 #include <QtCore>
 #include <QtNetwork>
 
-/*
- * Handles all zeroconf discovery system interactions
- */
+/* ------ Zeroconf wrapper ------ */
 
+/*
+ * Store zeroconf data in a Qt-ish struct
+ */
 struct ZeroconfPeer {
 	QHostAddress address;
 	QString name;
@@ -31,20 +32,26 @@ struct ZeroconfPeer {
 	{}
 };
 
+/*
+ * Wrapper for zeroconf browsing and service announcer
+ * It will retrieve all info from settings directly
+ */
 class ZeroconfHandler : public QObject {
 	Q_OBJECT
 	
 	public:
-		ZeroconfHandler (Settings & settings);
+		ZeroconfHandler ();
+
+		// Delayed start, to let the tcp server start before announcing it
 		void start (void);
 
+		/*
+		 * Here, we create signals directly giving info (instead of giving only
+		 * the name)
+		 */
 	signals:
 		void addPeer (ZeroconfPeer &);
 		void removePeer (QString &);
-
-	public slots:
-		// Not implemented yet
-		void settingsChanged (void);
 
 	private slots:
 		void internalAddPeer (QString name);
@@ -53,50 +60,67 @@ class ZeroconfHandler : public QObject {
 	private:
 		ZConfServiceBrowser mBrowser;
 		ZConfService mService;
-
-		// Cached settings. if settings changed, must reboot avahiService
-		QString mName;
-		quint16 mPort;
 };
 
 /*
  * Tcp layer
+ *
+ * Protocol sender->receiver :
+ * connection closed = abort
+ *
+ * --[quint64 peerNameSize]-->
+ * --[char[] peerName]-->
+ * --[quint64 fileNameSize]-->
+ * --[char[] fileName]-->
+ * --[quint64 fileSize]-->
+ * <--[quint64 accepted]--
+ * --[char[] fileContent]-->
+ *
  */
 
-class TransferHandler : private QObject {
-	Q_OBJECT
-
-	public:
-		enum Step {
-			Init, Waiting, Transferring, Finished
-		};
-
-		TransferHandler (QTcpSocket * socket);
-		~TransferHandler ();
-	
-	private:
-		Step mStep;
-		QTcpSocket * mSocket;
-};
+class InTransferHandler;
+class OutTransferHandler;
 
 class TcpServer : private QTcpServer {
 	Q_OBJECT
 	
 	public:
-		TcpServer (Settings & settings);
+		TcpServer ();
 		~TcpServer ();
 
 	signals:
-		void newConnection (TransferHandler * handler);
-
-	public slots:
-		void handlerInitComplete (TransferHandler * handler);
+		void newConnection (InTransferHandler * handler);
 
 	private slots:
 		void handleNewConnectionInternal (void);
 
 	private:
-		QList<TransferHandler *> mWaitingForHeaderConnections;
+		QList<InTransferHandler *> mWaitingForHeaderConnections;
+};
+
+class InTransferHandler : private QObject {
+	Q_OBJECT
+
+	public:
+		InTransferHandler (QTcpSocket * socket);
+		~InTransferHandler ();
+
+	private slots:
+		void processData (void);
+	
+	private:
+		QTcpSocket * mSocket;
+
+		// State
+		bool mReceivedPeerName;
+		bool mReceivedFileName;
+		bool mReceivedFileSize;
+};
+
+class OutTransferHandler : private QObject {
+	Q_OBJECT
+	
+
 };
 
 #endif
