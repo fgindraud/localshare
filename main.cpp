@@ -1,5 +1,4 @@
 #include "common.h"
-#include "trayIcon.h"
 #include "network.h"
 #include "mainWindow.h"
 
@@ -8,44 +7,27 @@
 void programWideSettingsInit (QApplication & app);
 
 int main (int argc, char *argv[]) {
-	// Main App
+	// Main app, misc settings
 	QApplication app (argc, argv);
+	programWideSettingsInit (app);
 
-	if (QSystemTrayIcon::isSystemTrayAvailable ()) {
-		programWideSettingsInit (app);
+	// Network discovery
+	ZeroconfHandler networkDiscoveryHandler;
 
-		// Network discovery
-		ZeroconfHandler networkDiscoveryHandler;
+	// Main window
+	MainWindow mainWindow (&networkDiscoveryHandler);
 
-		// Create tray icon, and show it.
-		TrayIcon trayIcon;
-		
-		// Main window
-		MainWindow mainWindow (&networkDiscoveryHandler, &trayIcon);
-		
-		// Start discovery
-		networkDiscoveryHandler.start ();
+	// Start discovery
+	networkDiscoveryHandler.start ();
 
-		// Start gui
-		return app.exec ();
-	} else {
-		Message::error (
-			"No system tray",
-			APP_NAME " requires a system tray system to work"
-		);
-
-		return app.exec ();
-	}
+	return app.exec ();
 }
 
 void programWideSettingsInit (QApplication & app) {
 	// register custom types for qt-event-loop
 	qRegisterMetaType<ZeroconfPeer> ("ZeroconfPeer");
-	
-	// Using no main window, so disable stupid defaults
-	app.setQuitOnLastWindowClosed (false);
 
-	// Icon
+	// App default icon
 	app.setWindowIcon (Icon::app ());
 }
 

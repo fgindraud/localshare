@@ -1,52 +1,109 @@
 /*
  * Main window.
- * Heavily uses drag & drop
  */
 #ifndef H_MAINWINDOW
 #define H_MAINWINDOW
 
 #include "network.h"
-#include "trayIcon.h"
+#include "peerWidgets.h"
+#include "miscWidgets.h"
 #include "common.h"
 
 #include <QtGui>
-#include <QList>
 
-class PeerListWidget;
-class PeerWidget;
-class TransferWidget;
 class WaitingForTransferFileWidget;
+class TrayIcon;
 
-class InTransferWidget;
-class OutTransferWidget;
-
+/*
+ * Main window
+ * 
+ * Maintains a list of peers, and the list of transfers for each peers.
+ * Has a peer filter (by name) to show a subset of connected peers.
+ *
+ * Sending a file to a peer is done by drag&drop-ing of a file in the peer area.
+ * Also manage a "buffer" for sent files : you can add a file to this buffer
+ * with "open file", and then drag&drop it from there.
+ */
 class MainWindow : public QWidget {
 	Q_OBJECT
 
 	public:
-		MainWindow (ZeroconfHandler * discoveryHandler, TrayIcon * trayIcon);
+		// Constructor : takes the discovery manager to connect signals.
+		MainWindow (ZeroconfHandler * discoveryHandler);
 
 	public slots:
-		void toggled (void);
+		// Called by tray icon when it is clicked ; toggle window visibility (minimize-to-tray)
+		void windowVisibilityToggled (void);
 
-	private slots:
+		// Invoke "open file" dialog
 		void addFiles (void);
 
+		// Invoke settings dialog
+		void invokeSettings (void);
+
 	private:
+		// Window construction
 		void createMainWindow (void);
+		void connectSignals (ZeroconfHandler * discoveryHandler);
+		void trayIconEnabledAdditionalSetup (void);
 
+	private:
+		// Optionnal tray icon
+		TrayIcon * mTray;
 
-		QLineEdit * mHeaderFilterTextEdit;
-		QPushButton * mHeaderAddButton;
-		QPushButton * mHeaderSettingsButton;
-
+		/*
+		 * Window structure
+		 */
+		QVBoxLayout * mMainVbox;
+	
+		// First line : peer filter, and settings/open file buttons	
 		QHBoxLayout * mHeaderHbox;
+		QLineEdit * mHeaderFilterTextEdit;
+		IconButton * mHeaderAddButton;
+		IconButton * mHeaderSettingsButton;
 
+		// Second : list of buffered files
 		QVBoxLayout * mWaitingFileList;
 
+		// Third : List of peers
 		PeerListWidget * mPeerList;
+};
 
-		QVBoxLayout * mMainVbox;
+/*
+ * TrayIcon (optionnal)
+ * 
+ *	When enabled, is able to show/hide the main window on click.
+ * Houses links to utilities (settings, open file).
+ */
+class TrayIcon : public QSystemTrayIcon {
+	Q_OBJECT
+
+	public:
+		TrayIcon (MainWindow * window);
+		~TrayIcon ();
+
+	signals:
+		// Emitted when tray icon is clicked
+		void mainWindowToggled (void);
+
+	private slots:
+		// Filter activation reasons before emitting mainWindowToggled
+		void wasClicked (QSystemTrayIcon::ActivationReason reason);
+
+	private:
+		// Creation
+		void createMenu (void);
+		void connectToWindow (MainWindow * window);
+
+		/*
+		 * Structure : linear menu
+		 * Exit quits the program
+		 */
+		QMenu * mContext;
+
+		QAction * mOpenFile;
+		QAction * mSettings;
+		QAction * mExit;
 };
 
 class WaitingForTransferFileWidget : public QFrame {
@@ -67,118 +124,14 @@ class WaitingForTransferFileWidget : public QFrame {
 		QString fileName;
 
 		// Gui
-		QLabel * mFileIconLabel;
+		IconLabel * mFileIconLabel;
 		QLabel * mFileDescrLabel;
-		QPushButton * mDeleteFile;
+		IconButton * mDeleteFile;
 
 		QHBoxLayout * mLayout;
 };
 
-class PeerHandler : public ZeroconfPeer {
-	public:
-		PeerHandler (ZeroconfPeer & peerBase) :
-			ZeroconfPeer (peerBase), mView (0)
-		{}
-		
-		void setView (PeerWidget * widget);
-		QWidget * view (void);
 
-	private:
-		PeerWidget * mView;
-};
-
-class PeerListWidget : public QScrollArea {
-	Q_OBJECT
-
-	public:
-		typedef QList<PeerHandler *> PeerList;
-
-		PeerListWidget ();
-
-	public slots:
-		void addPeer (ZeroconfPeer & peer);
-		void removePeer (QString & peer);
-
-		void filterPeers (const QString & namePart);
-	
-	private:
-		void addPeerInternal (int index, ZeroconfPeer & peer);
-
-		QWidget * mScrollInternal;
-		QVBoxLayout * mScrollInternalLayout;
-
-		PeerList mPeerList;
-};
-
-class PeerWidget : public QGroupBox {
-	Q_OBJECT
-
-	public:
-		PeerWidget (PeerHandler * peer);
-
-	protected:
-		void dragEnterEvent (QDragEnterEvent * event);
-		void dropEvent (QDropEvent * event);
-
-	private:
-
-		QLabel * mPeerNetworkInfo;
-
-		QVBoxLayout * mLayout;
-};
-
-/*
- * Transfer widget
- */
-
-class TransferWidget : public QFrame {
-	public:
-		enum Status {
-			Waiting, Transfering, Finished
-		};
-
-		TransferWidget ();
-
-	protected:
-
-		//TransferHandler * mTransferHandler;
-
-		// Left info
-		QLabel * mTransferTypeIcon;
-		QLabel * mFileDescr;
-
-		// Steps
-		QWidget * mWaitingWidget;
-		QHBoxLayout * mWaitingLayout;
-		
-		QProgressBar * mTransferingProgressBar;
-		
-		QLabel * mFinishedStatus;
-
-		QHBoxLayout * mStepsLayout;
-
-		// Right
-		QPushButton * mCloseAbortButton;
-
-		QHBoxLayout * mMainLayout;
-
-		// Private functions
-		void setStatus (Status status);	
-};
-
-class InTransferWidget : public TransferWidget {
-	public:
-		InTransferWidget ();
-		
-	private:
-		// Additionnal widgets
-		QPushButton * mAcceptButton;
-};
-
-class OutTransferWidget : public TransferWidget {
-	public:
-		OutTransferWidget ();
-};
 
 #endif
 
