@@ -96,9 +96,22 @@ class Icon {
 };
 
 /*
- * File size pretty printer
+ * File utilities
  */
-QString fileSizeToString (quint64 size);
+class FileUtils {
+	public:
+		typedef quint64 Size;
+
+		/*
+		 * Give a human readable string for file size.
+		 */
+		static QString sizeToString (Size size);
+
+		/*
+		 * Check if a file is readable, and get its size and basename
+		 */
+		static bool infoCheck (const QString filename, Size * size = 0, QString * baseName = 0);
+};
 
 #endif
 

@@ -26,5 +26,11 @@
  */
 #define AVAHI_SERVICE_NAME ("_" APP_NAME "._tcp")
 
+/*
+ * Drag Icon size
+ * Size of icons attached to cursor during drag&drop operations
+ */
+#define DRAG_ICON_SIZE 32
+
 #endif
 

@@ -6,6 +6,7 @@
 #include <QSystemTrayIcon>
 #include <QApplication>
 #include <QDir>
+#include <QFileInfo>
 
 /* ----- Settings ----- */
 
@@ -138,7 +139,7 @@ QCommonStyle Icon::style;
 
 /* ------ File size ------ */
 
-QString fileSizeToString (quint64 size) {
+QString FileUtils::sizeToString (Size size) {
 	double num = size;
 	QStringList list;
 
@@ -153,5 +154,18 @@ QString fileSizeToString (quint64 size) {
 		num /= increment;
 	}
 	return QString ().setNum (num, 'f', 2) + unit;
+}
+
+bool FileUtils::infoCheck (const QString filename, Size * size, QString * baseName) {
+	QFileInfo fileInfo (filename);
+	if (fileInfo.exists () && fileInfo.isFile () && fileInfo.isReadable ()) {
+		if (size != 0)
+			*size = fileInfo.size ();
+		if (baseName != 0)
+			*baseName = fileInfo.fileName ();
+		return true;
+	} else {
+		return false;
+	}
 }
 

@@ -36,8 +36,8 @@ void MainWindow::createMainWindow (void) {
 	mHeaderHbox->addWidget (mHeaderSettingsButton);
 
 	// Second
-	mWaitingFileList = new QVBoxLayout;
-	mMainVbox->addLayout (mWaitingFileList);
+	mSendFileArea = new SendFileArea;
+	mMainVbox->addWidget (mSendFileArea);
 
 	// Peers
 	mPeerList = new PeerListWidget;
@@ -78,10 +78,12 @@ void MainWindow::windowVisibilityToggled (void) {
 }
 
 void MainWindow::addFiles (void) {
+	// Get files from dialog
 	QStringList addedFiles = QFileDialog::getOpenFileNames (this);
 
+	// Put them in holder area
 	foreach (QString file, addedFiles)
-		mWaitingFileList->addWidget (new WaitingForTransferFileWidget (file));
+		mSendFileArea->addFile (file);
 }
 
 void MainWindow::invokeSettings (void) {
@@ -147,58 +149,87 @@ void TrayIcon::wasClicked (QSystemTrayIcon::ActivationReason reason) {
 		emit mainWindowToggled ();
 }
 
-/* ------ File waiting ------ */
+/* ------ Send File Area ------ */
+SendFileArea::SendFileArea () : StyledFrame () {
+	// Enable drops
+	setAcceptDrops (true);
 
-WaitingForTransferFileWidget::WaitingForTransferFileWidget (const QString & file) {
-	// Save file info
-	fileName = file;
-	
-	// Create widget
-	mFileIconLabel = new IconLabel (Icon::file ());
-
-	quint64 fileSize = QFileInfo (file).size ();
-	QString description = QString ("%1 [%2]").arg (file, fileSizeToString (fileSize));
-	mFileDescrLabel = new QLabel (description);
-
-	mDeleteFile = new IconButton (Icon::closeAbort ());
-
-	mLayout = new QHBoxLayout;
-	mLayout->addWidget (mFileIconLabel);
-	mLayout->addWidget (mFileDescrLabel, 1);
-	mLayout->addWidget (mDeleteFile);
-
+	// Main vbox
+	mLayout = new QVBoxLayout;
 	setLayout (mLayout);
-	setFrameStyle (QFrame::StyledPanel | QFrame::Raised);
+}
 
-	// Add delete handler
-	QObject::connect (mDeleteFile, SIGNAL (clicked ()),
+void SendFileArea::dragEnterEvent (QDragEnterEvent * event) {
+	// Accept only Urls
+	if (event->mimeData ()->hasUrls ())
+		event->acceptProposedAction ();
+}
+
+void SendFileArea::dropEvent (QDropEvent * event) {
+	// Accept only Urls pointing to local files
+	if (event->mimeData ()->hasUrls ()) {
+		foreach (QUrl url, event->mimeData ()->urls ())
+			if (url.isLocalFile ())
+				// Then add it.
+				addFile (url.toLocalFile ());
+
+		event->acceptProposedAction ();
+	}
+}
+
+void SendFileArea::addFile (const QString filePath) {
+	FileUtils::Size size;
+	if (FileUtils::infoCheck (filePath, &size))
+		mLayout->addWidget (new SendFileItem (filePath, size));
+}
+
+/* ------ Send file item ------ */
+SendFileItem::SendFileItem (const QString file, FileUtils::Size size) :
+	BoxWidgetWrapper (QBoxLayout::LeftToRight) {
+	// Save filename
+	mHoldFileName = file;
+	
+	// Gui
+	mFileIconLabel = new IconLabel (Icon::file ());
+	mBoxLayout->addWidget (mFileIconLabel);
+
+	QString description = QString ("%1 [%2]").arg (file, FileUtils::sizeToString (size));
+	mFileDescrLabel = new QLabel (description);
+	mBoxLayout->addWidget (mFileDescrLabel, 1);
+
+	mDelete = new IconButton (Icon::closeAbort ());
+	mBoxLayout->addWidget (mDelete);
+
+	// Delete this file holder when delete button is clicked
+	QObject::connect (mDelete, SIGNAL (clicked ()),
 			this, SLOT (deleteLater ()));
 }
 		
-void WaitingForTransferFileWidget::mousePressEvent (QMouseEvent * event) {
+void SendFileItem::mousePressEvent (QMouseEvent * event) {
+	// Save click position
 	if (event->button () == Qt::LeftButton)
-		startDragPos = event->pos ();
+		mStartDragPos = event->pos ();
 }
 
-void WaitingForTransferFileWidget::mouseMoveEvent (QMouseEvent * event) {
-	// Stop if not relevant
+void SendFileItem::mouseMoveEvent (QMouseEvent * event) {
+	// Check if left button is hold, and if we moved enough to start dragging
 	if (not (event->buttons () & Qt::LeftButton))
 		return;
-	if ((event->pos () - startDragPos).manhattanLength () < QApplication::startDragDistance ())
+	if ((event->pos () - mStartDragPos).manhattanLength () < QApplication::startDragDistance ())
 		return;
 
-	// Build drag info
-	QList< QUrl > url;
-	url << QUrl ().fromLocalFile (fileName);
-
+	// Create draggable info : one Url pointing to the local file.
+	QList< QUrl > urlSingleton;
+	urlSingleton << QUrl ().fromLocalFile (mHoldFileName);
 	QMimeData * mimeData = new QMimeData;
-	mimeData->setUrls (url);
+	mimeData->setUrls (urlSingleton);
 
+	// Create drag class, and set a file icon.
 	QDrag * drag = new QDrag (this);
 	drag->setMimeData (mimeData);
-	drag->setPixmap (Icon::file ().pixmap (32));
+	drag->setPixmap (Icon::file ().pixmap (DRAG_ICON_SIZE));
 
-	// Drag
+	// Exec drag
 	drag->exec (Qt::CopyAction);
 }
 
