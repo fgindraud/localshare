@@ -20,6 +20,10 @@ class Settings {
 		static quint16 tcpPort (void);
 		static quint16 defaultTcpPort (void);
 		static void setTcpPort (quint16 port);
+		
+		static int tcpKeepAliveTime (void);
+		static int defaultTcpKeepAliveTime (void);
+		static void setTcpKeepAliveTime (int sec);
 
 		/* Download path/confirmation settings */
 		static QString downloadPath (void);

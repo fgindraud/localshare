@@ -21,6 +21,11 @@
 #define DEFAULT_TCP_PORT 41563
 
 /*
+ * Default keep alive time
+ */
+#define DEFAULT_KEEP_ALIVE 30
+
+/*
  * Avahi Service name
  * DO NOT change this, this will break interoperability
  */

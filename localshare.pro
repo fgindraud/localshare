@@ -19,8 +19,8 @@ PKGCONFIG += avahi-qt4 avahi-client
 RESOURCES += icon.qrc
 
 # Input
-HEADERS += common.h localshare.h mainWindow.h network.h peerWidgets.h miscWidgets.h
-SOURCES += common.cpp main.cpp mainWindow.cpp network.cpp peerWidgets.cpp miscWidgets.cpp
+HEADERS += common.h localshare.h mainWindow.h network.h peerWidgets.h miscWidgets.h transfer.h
+SOURCES += common.cpp main.cpp mainWindow.cpp network.cpp peerWidgets.cpp miscWidgets.cpp transfer.cpp
 
 HEADERS += qtzeroconf/zconfservicebrowser.h qtzeroconf/zconfserviceclient.h qtzeroconf/zconfservice.h
 SOURCES += qtzeroconf/zconfservicebrowser.cpp qtzeroconf/zconfserviceclient.cpp qtzeroconf/zconfservice.cpp

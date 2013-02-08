@@ -14,15 +14,17 @@ QSettings Settings::settings (APP_NAME, APP_NAME);
 
 static const QString networkNameKey ("network/name");
 static const QString networkTcpPortKey ("network/tcpPort");
+static const QString networkTcpKeepAliveTimeKey ("network/tcpKeepAliveTime");
+
 static const QString downloadPathKey ("download/path");
 static const QString alwaysDownladKey ("download/alwaysAccept");
+
 static const QString useSystemTrayKey ("gui/useSystemTray");
 
 /*
  * network/name
  * Peer name on the network
  */
-
 static void namePostProcessor (QString & str) { str.truncate (NAME_SIZE_LIMIT); }
 
 QString Settings::defaultName (void) {
@@ -58,6 +60,22 @@ quint16 Settings::tcpPort (void) {
 
 void Settings::setTcpPort (quint16 port) {
 	settings.setValue (networkTcpPortKey, port);
+}
+
+/*
+ * network/tcpKeepAliveTime
+ * Time in seconds before closing a connection between two peers when it is unused.
+ */
+static void tcpKeepAliveTimePostProcessor (int & sec) { if (sec < 0) sec = 0; }
+
+int Settings::defaultTcpKeepAliveTime (void) { return DEFAULT_KEEP_ALIVE; }
+
+int Settings::tcpKeepAliveTime (void) {
+	return getValueCached (networkTcpKeepAliveTimeKey, defaultTcpKeepAliveTime, tcpKeepAliveTimePostProcessor);
+}
+
+void Settings::setTcpKeepAliveTime (int sec) {
+	settings.setValue (networkTcpKeepAliveTimeKey, sec);
 }
 
 /*
