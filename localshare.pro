@@ -13,7 +13,7 @@ CONFIG(debug, debug|release) {
 TEMPLATE = app
 DEPENDPATH += .
 INCLUDEPATH += .
-QT += network
+QT += network widgets
 CONFIG += link_pkgconfig
 PKGCONFIG += avahi-qt4 avahi-client
 RESOURCES += icon.qrc
