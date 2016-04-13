@@ -8,7 +8,7 @@
 #include "common.h"
 #include "miscWidgets.h"
 
-#include <QtGui>
+#include <QtWidgets>
 #include <QList>
 
 class TransferWidget;
@@ -51,7 +51,7 @@ class TransferWidget : public StyledFrame {
 		QHBoxLayout * mMainLayout;
 
 		// Private functions
-		void setStatus (Status status);	
+		void setStatus (Status status);
 };
 
 class InTransferWidget : public TransferWidget {

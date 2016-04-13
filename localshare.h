@@ -1,41 +1,22 @@
 /*
  * Program wide general declarations
  */
-#ifndef H_DECL
-#define H_DECL
+#ifndef LOCALSHARE_H
+#define LOCALSHARE_H
 
-/*
- * Application name for printing
- */
-#define APP_NAME "localshare"
+namespace Const {
+constexpr auto app_name = "localshare";
 
-/*
- * Network name size limit
- */
-#define NAME_SIZE_LIMIT 300
+// Network related
+constexpr int name_size_limit = 300; // Length of username
 
-/*
- * Default tcp port for communication
- * (using avahi to discover it, you can change this)
- */
-#define DEFAULT_TCP_PORT 41563
+constexpr int discovery_port = 41563;   // Discovery system port
+constexpr int dicovery_keep_alive = 60; // Time between keep alive packets (s)
 
-/*
- * Default keep alive time
- */
-#define DEFAULT_KEEP_ALIVE 30
+constexpr int default_tcp_port = discovery_port + 1;
 
-/*
- * Avahi Service name
- * DO NOT change this, this will break interoperability
- */
-#define AVAHI_SERVICE_NAME ("_" APP_NAME "._tcp")
-
-/*
- * Drag Icon size
- * Size of icons attached to cursor during drag&drop operations
- */
-#define DRAG_ICON_SIZE 32
+// Graphical
+constexpr int drag_icon_size = 32; // Size of icons attached to cursor during drag&drop operations
+}
 
 #endif
-

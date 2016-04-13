@@ -10,112 +10,76 @@
 /*
  * Handle program settings, and defaults values
  */
-class Settings {
-	public:
-		/* Network settings */
-		static QString name (void);
-		static QString defaultName (void);
-		static void setName (QString & name);
+namespace Settings {
+/* Network settings */
+QString name (void);
+void setName (const QString & name);
 
-		static quint16 tcpPort (void);
-		static quint16 defaultTcpPort (void);
-		static void setTcpPort (quint16 port);
-		
-		static int tcpKeepAliveTime (void);
-		static int defaultTcpKeepAliveTime (void);
-		static void setTcpKeepAliveTime (int sec);
+quint16 tcpPort (void);
+void setTcpPort (quint16 port);
 
-		/* Download path/confirmation settings */
-		static QString downloadPath (void);
-		static QString defaultDownloadPath (void);
-		static void setDownloadPath (const QString & path);
+int tcpKeepAliveTime (void);
+void setTcpKeepAliveTime (int sec);
 
-		static bool alwaysDownload (void);
-		static bool defaultAlwaysDownload (void);
-		static void setAlwaysDownload (bool always);
+/* Download path/confirmation settings */
+QString downloadPath (void);
+void setDownloadPath (const QString & path);
 
-		/* Use system tray */
-		static bool useSystemTray (void);
-		static bool defaultUseSystemTray (void);
-		static void setUseSystemTray (bool use);
+bool alwaysDownload (void);
+bool defaultAlwaysDownload (void);
+void setAlwaysDownload (bool always);
 
-	private:
-		// Internal instance
-		static QSettings settings;
-
-		// Used to make settings accessors
-		template< typename T >
-		static T getValueCached (
-			const QString & key,
-			T (*defaultFactory) (void),
-			void (*postProcessor) (T &) = 0
-		) {
-			// Cache value if not already done
-			if (not settings.contains (key))
-				settings.setValue (key, defaultFactory ());
-			// Get value
-			T value = settings.value (key).value<T> ();
-			// Post process it if needed
-			if (postProcessor != 0)
-				postProcessor (value);
-			// Return it
-			return value;
-		}
-};
+/* Use system tray */
+bool useSystemTray (void);
+void setUseSystemTray (bool use);
+}
 
 /*
  * Error messages
  */
-class Message {
-	public:
-		static void error (const QString & title, const QString & message);
-		static void warning (const QString & title, const QString & message);
-};
+namespace Message {
+void error (const QString & title, const QString & message);
+void warning (const QString & title, const QString & message);
+}
 
 /*
  * Icon settings for the application
  */
-class Icon {
-	public:
-		// Application icon
-		static QIcon app (void);
+namespace Icon {
+// Application icon
+QIcon app (void);
 
-		// Represents a file
-		static QIcon file (void);
+// Represents a file
+QIcon file (void);
 
-		// Open file & Settings dialog buttons
-		static QIcon openFile (void);
-		static QIcon settings (void);
+// Open file & Settings dialog buttons
+QIcon openFile (void);
+QIcon settings (void);
 
-		// Accept and refuse/close icon
-		static QIcon accept (void);
-		static QIcon closeAbort (void);
+// Accept and refuse/close icon
+QIcon accept (void);
+QIcon closeAbort (void);
 
-		// In/out-bound transfer icons
-		static QIcon inbound (void);
-		static QIcon outbound (void);
-
-	private:
-		static QCommonStyle style;
+// In/out-bound transfer icons
+QIcon inbound (void);
+QIcon outbound (void);
 };
 
 /*
  * File utilities
  */
-class FileUtils {
-	public:
-		typedef quint64 Size;
+namespace FileUtils {
+using Size = quint64;
 
-		/*
-		 * Give a human readable string for file size.
-		 */
-		static QString sizeToString (Size size);
+/*
+ * Give a human readable string for file size.
+ */
+QString sizeToString (Size size);
 
-		/*
-		 * Check if a file is readable, and get its size and basename
-		 */
-		static bool infoCheck (const QString filename, Size * size = 0, QString * baseName = 0);
+/*
+ * Check if a file is readable, and get its size and basename
+ */
+bool infoCheck (const QString filename, Size * size = nullptr, QString * baseName = nullptr);
 };
 
 #endif
-

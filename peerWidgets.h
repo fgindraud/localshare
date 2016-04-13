@@ -9,7 +9,7 @@
 #include "miscWidgets.h"
 #include "transfer.h"
 
-#include <QtGui>
+#include <QtWidgets>
 #include <QList>
 
 class PeerListWidget;

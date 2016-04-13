@@ -9,7 +9,7 @@
 #include "miscWidgets.h"
 #include "common.h"
 
-#include <QtGui>
+#include <QtWidgets>
 
 class MainWindow;
 class TrayIcon;

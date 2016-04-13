@@ -81,7 +81,7 @@ class ZeroconfHandler : public QObject {
 class InTransferHandler;
 class OutTransferHandler;
 
-class TcpServer : private QTcpServer {
+class TcpServer : public QTcpServer {
 	Q_OBJECT
 	
 	public:
@@ -98,7 +98,7 @@ class TcpServer : private QTcpServer {
 		QList<InTransferHandler *> mWaitingForHeaderConnections;
 };
 
-class InTransferHandler : private QObject {
+class InTransferHandler : public QObject {
 	Q_OBJECT
 
 	public:
@@ -117,7 +117,7 @@ class InTransferHandler : private QObject {
 		bool mReceivedFileSize;
 };
 
-class OutTransferHandler : private QObject {
+class OutTransferHandler : public QObject {
 	Q_OBJECT
 	
 

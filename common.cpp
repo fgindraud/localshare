@@ -1,6 +1,8 @@
 #include "localshare.h"
 #include "common.h"
 
+#include <utility>
+
 #include <QMessageBox>
 #include <QProcessEnvironment>
 #include <QSystemTrayIcon>
@@ -10,55 +12,72 @@
 
 /* ----- Settings ----- */
 
-QSettings Settings::settings (APP_NAME, APP_NAME);
+namespace Settings {
+namespace {
+	QSettings settings (APP_NAME, APP_NAME);
 
-static const QString networkNameKey ("network/name");
-static const QString networkTcpPortKey ("network/tcpPort");
-static const QString networkTcpKeepAliveTimeKey ("network/tcpKeepAliveTime");
+	template <typename T, typename DefaultFactory, typename Normalizer>
+	T getValueCached (const QString & key, DefaultFactory && defaultFactory,
+	                  Normalizer && normalizer) {
+		// Cache value if not already done
+		if (not settings.contains (key))
+			settings.setValue (key, normalizer (defaultFactory ()));
+		// Get value
+		return normalizer (settings.value (key).value<T> ());
+	}
+	
+	template <typename T, typename DefaultFactory>
+	T getValueCached (const QString & key, DefaultFactory && defaultFactory) {
+		return getValueCached<T> (key, std::forward<DefaultFactory> (defaultFactory), [] (T arg) { return arg; });
+	}
 
-static const QString downloadPathKey ("download/path");
-static const QString alwaysDownladKey ("download/alwaysAccept");
+	const QString networkNameKey ("network/name");
+	const QString networkTcpPortKey ("network/tcpPort");
+	const QString networkTcpKeepAliveTimeKey ("network/tcpKeepAliveTime");
 
-static const QString useSystemTrayKey ("gui/useSystemTray");
+	const QString downloadPathKey ("download/path");
+	const QString alwaysDownloadKey ("download/alwaysAccept");
+
+	const QString useSystemTrayKey ("gui/useSystemTray");
+}
 
 /*
  * network/name
  * Peer name on the network
  */
-static void namePostProcessor (QString & str) { str.truncate (NAME_SIZE_LIMIT); }
+QString name (void) {
+	return getValueCached<QString> (
+	    networkNameKey,
+	    [] {
+		    // Try to get a username from classical env variables
+		    const char * candidates[] = {"USER", "USERNAME", "HOSTNAME", "LOGNAME"};
+		    QProcessEnvironment env = QProcessEnvironment::systemEnvironment ();
+		    for (auto key : candidates)
+			    if (env.contains (key))
+				    return env.value (key);
 
-QString Settings::defaultName (void) {
-	QStringList candidates;
-	// Try to get a username from classical env variables
-	candidates << "USER" << "USERNAME";
-	candidates << "HOSTNAME";
-
-	QProcessEnvironment env = QProcessEnvironment::systemEnvironment ();
-	foreach (QString key, candidates)
-		if (env.contains (key))
-			return env.value (key);
-
-	// Or return default if not found
-	return "Unknown";
+		    // Or return default if not found
+		    return QString ("Unknown");
+		  },
+	    [](QString && str) {
+		    str.truncate (NAME_SIZE_LIMIT);
+		    return str;
+		  });
 }
 
-QString Settings::name (void) {
-	return getValueCached (networkNameKey, defaultName, namePostProcessor);
+void setName (const QString & name) {
+	settings.setValue (networkNameKey, name);
 }
-
-void Settings::setName (QString & name) { settings.setValue (networkNameKey, name); }
 
 /*
  * network/tcpPort
  * Opened tcp port (default is in localshare.h)
  */
-quint16 Settings::defaultTcpPort (void) { return DEFAULT_TCP_PORT; }
-
-quint16 Settings::tcpPort (void) {
-	return getValueCached (networkTcpPortKey, defaultTcpPort);
+quint16 tcpPort (void) {
+	return getValueCached<quint16> (networkTcpPortKey, [] { return DEFAULT_TCP_PORT; });
 }
 
-void Settings::setTcpPort (quint16 port) {
+void setTcpPort (quint16 port) {
 	settings.setValue (networkTcpPortKey, port);
 }
 
@@ -66,15 +85,17 @@ void Settings::setTcpPort (quint16 port) {
  * network/tcpKeepAliveTime
  * Time in seconds before closing a connection between two peers when it is unused.
  */
-static void tcpKeepAliveTimePostProcessor (int & sec) { if (sec < 0) sec = 0; }
-
-int Settings::defaultTcpKeepAliveTime (void) { return DEFAULT_KEEP_ALIVE; }
-
-int Settings::tcpKeepAliveTime (void) {
-	return getValueCached (networkTcpKeepAliveTimeKey, defaultTcpKeepAliveTime, tcpKeepAliveTimePostProcessor);
+int tcpKeepAliveTime (void) {
+	return getValueCached<int> (networkTcpKeepAliveTimeKey, [] { return DEFAULT_KEEP_ALIVE; },
+	                            [](int sec) {
+		                            if (sec < 0)
+			                            return 0;
+		                            else
+			                            return sec;
+		                          });
 }
 
-void Settings::setTcpKeepAliveTime (int sec) {
+void setTcpKeepAliveTime (int sec) {
 	settings.setValue (networkTcpKeepAliveTimeKey, sec);
 }
 
@@ -82,13 +103,11 @@ void Settings::setTcpKeepAliveTime (int sec) {
  * download/path
  * Path to where files are stored (default = homepath)
  */
-QString Settings::defaultDownloadPath (void) { return QDir::homePath (); }
-
-QString Settings::downloadPath (void) {
-	return getValueCached (downloadPathKey, defaultDownloadPath);
+QString downloadPath (void) {
+	return getValueCached<QString> (downloadPathKey, [] { return QDir::homePath (); });
 }
 
-void Settings::setDownloadPath (const QString & path) {
+void setDownloadPath (const QString & path) {
 	settings.setValue (downloadPathKey, path);
 }
 
@@ -96,31 +115,26 @@ void Settings::setDownloadPath (const QString & path) {
  * download/alwaysAccept
  * Automatically accepts all file proposals (defaults to false)
  */
-bool Settings::defaultAlwaysDownload (void) { return false; }
-
-bool Settings::alwaysDownload (void) {
-	return getValueCached (alwaysDownladKey, defaultAlwaysDownload);
+bool alwaysDownload (void) {
+	return getValueCached<bool> (alwaysDownloadKey, [] { return false; });
 }
 
-void Settings::setAlwaysDownload (bool always) {
-	settings.setValue (alwaysDownladKey, always);
+void setAlwaysDownload (bool always) {
+	settings.setValue (alwaysDownloadKey, always);
 }
 
 /*
  * gui/useSystemTray
  */
-static void useSystemTrayPostProcessor (bool & enabled) {
-	enabled = enabled && QSystemTrayIcon::isSystemTrayAvailable ();
+bool useSystemTray (void) {
+	return getValueCached<bool> (
+	    useSystemTrayKey, [] { return true; },
+	    [](bool enabled) { return enabled && QSystemTrayIcon::isSystemTrayAvailable (); });
 }
 
-bool Settings::defaultUseSystemTray (void) { return true; }
-
-bool Settings::useSystemTray (void) {
-	return getValueCached (useSystemTrayKey, defaultUseSystemTray, useSystemTrayPostProcessor);
-}
-
-void Settings::setUseSystemTray (bool enabled) {
+void setUseSystemTray (bool enabled) {
 	settings.setValue (useSystemTrayKey, enabled);
+}
 }
 
 /* ----- Message ----- */
@@ -129,52 +143,70 @@ void Settings::setUseSystemTray (bool enabled) {
  * User-level error and warning messages
  */
 
-void Message::error (const QString & title, const QString & message) {
+namespace Message {
+void error (const QString & title, const QString & message) {
 	QMessageBox::critical (0, title, message);
 	qApp->quit ();
 }
 
-void Message::warning (const QString & title, const QString & message) {
+void warning (const QString & title, const QString & message) {
 	QMessageBox::warning (0, title, message);
+}
 }
 
 /* ------ Icons ------ */
 
-QIcon Icon::app (void) { return QIcon (":/icon.svg"); }
+namespace Icon {
+namespace {
+	QCommonStyle style;
+}
 
-QIcon Icon::file (void) { return style.standardIcon (QStyle::SP_FileIcon); }
+QIcon app (void) {
+	return QIcon (":/icon.svg");
+}
 
-QIcon Icon::openFile (void) { return style.standardIcon (QStyle::SP_DirIcon); }
-QIcon Icon::settings (void) { return style.standardIcon (QStyle::SP_ComputerIcon); }
+QIcon file (void) {
+	return style.standardIcon (QStyle::SP_FileIcon);
+}
 
-QIcon Icon::accept (void) { return style.standardIcon (QStyle::SP_DialogOkButton); }
-QIcon Icon::closeAbort (void) { return style.standardIcon (QStyle::SP_DialogCancelButton); }
+QIcon openFile (void) {
+	return style.standardIcon (QStyle::SP_DirIcon);
+}
+QIcon settings (void) {
+	return style.standardIcon (QStyle::SP_ComputerIcon);
+}
 
-QIcon Icon::inbound (void) { return style.standardIcon (QStyle::SP_ArrowDown); }
-QIcon Icon::outbound (void) { return style.standardIcon (QStyle::SP_ArrowUp); }
+QIcon accept (void) {
+	return style.standardIcon (QStyle::SP_DialogOkButton);
+}
+QIcon closeAbort (void) {
+	return style.standardIcon (QStyle::SP_DialogCancelButton);
+}
 
-QCommonStyle Icon::style;
+QIcon inbound (void) {
+	return style.standardIcon (QStyle::SP_ArrowDown);
+}
+QIcon outbound (void) {
+	return style.standardIcon (QStyle::SP_ArrowUp);
+}
+}
 
 /* ------ File size ------ */
 
-QString FileUtils::sizeToString (Size size) {
+namespace FileUtils {
+QString sizeToString (Size size) {
 	double num = size;
-	QStringList list;
-
 	double increment = 1024.0;
-	list << "kio" << "Mio" << "Gio" << "Tio";
-
-	QStringListIterator i (list);
-	QString unit ("o");
-
-	while (num >= increment && i.hasNext ()) {
-		unit = i.next ();
+	const char * suffixes[] = {"o", "kio", "Mio", "Gio", "Tio", nullptr};
+	int unit_idx = 0;
+	while (num >= increment && suffixes[unit_idx + 1] != nullptr) {
+		unit_idx++;
 		num /= increment;
 	}
-	return QString ().setNum (num, 'f', 2) + unit;
+	return QString ().setNum (num, 'f', 2) + suffixes[unit_idx];
 }
 
-bool FileUtils::infoCheck (const QString filename, Size * size, QString * baseName) {
+bool infoCheck (const QString filename, Size * size, QString * baseName) {
 	QFileInfo fileInfo (filename);
 	if (fileInfo.exists () && fileInfo.isFile () && fileInfo.isReadable ()) {
 		if (size != 0)
@@ -186,4 +218,4 @@ bool FileUtils::infoCheck (const QString filename, Size * size, QString * baseNa
 		return false;
 	}
 }
-
+}

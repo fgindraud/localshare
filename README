@@ -6,3 +6,5 @@ To compile :
 $ qmake
 $ make
 
+Remove dep on avahi, use custom discovery with udp
+

@@ -4,7 +4,7 @@
 #ifndef H_MISCWIDGETS
 #define H_MISCWIDGETS
 
-#include <QtGui>
+#include <QtWidgets>
 
 /*
  * Button with icon and tooltip.
