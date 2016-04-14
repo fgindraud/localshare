@@ -1,33 +1,17 @@
-#include "common.h"
-#include "network.h"
-#include "mainWindow.h"
+#include "discovery.h"
 
 #include <QApplication>
 
-void programWideSettingsInit (QApplication & app);
-
 int main (int argc, char *argv[]) {
-	// Main app, misc settings
 	QApplication app (argc, argv);
-	programWideSettingsInit (app);
+	//app.setWindowIcon (Icon::app ());
 
-	// Network discovery
-	ZeroconfHandler networkDiscoveryHandler;
+	if (argc < 2)
+		qFatal ("requires 1 argument");
 
-	// Main window
-	MainWindow mainWindow (&networkDiscoveryHandler);
-
-	// Start discovery
-	networkDiscoveryHandler.start ();
+	Discovery::Service serv {argv[1], Const::service_name, (quint16) (40000 + argc)};
+	Discovery::Browser browser {Const::service_name};
 
 	return app.exec ();
-}
-
-void programWideSettingsInit (QApplication & app) {
-	// register custom types for qt-event-loop
-	qRegisterMetaType<ZeroconfPeer> ("ZeroconfPeer");
-
-	// App default icon
-	app.setWindowIcon (Icon::app ());
 }
 

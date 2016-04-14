@@ -2,18 +2,28 @@
 CONFIG += c++11
 
 TEMPLATE = app
+
 DEPENDPATH += .
 INCLUDEPATH += .
-QT += network widgets
+
+QT += core network widgets
 RESOURCES += icon.qrc
 
-CONFIG += debug_and_release
-CONFIG(debug, debug|release) {
-	TARGET = debug_localshare
-} else {
-	TARGET = localshare
+# DNS service discovery library
+unix {
+	# Provided by avahi-compat-libdns_sd
+	LIBS += -ldns_sd
+}
+mac {
+	# Seems to be part of stdlib there
+}
+win32 {
+	# Provided by mDNSResponder (Bonjour windows service)
+	# May require custom LIBPATH/INCLUDEPATH
+	LIBS += -ldnssd
 }
 
+
 # Input
-HEADERS += common.h localshare.h mainWindow.h network.h peerWidgets.h miscWidgets.h transfer.h
-SOURCES += common.cpp main.cpp mainWindow.cpp network.cpp peerWidgets.cpp miscWidgets.cpp transfer.cpp
+HEADERS += localshare.h discovery.h settings.h
+SOURCES += main.cpp
