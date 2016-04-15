@@ -23,7 +23,6 @@ win32 {
 	LIBS += -ldnssd
 }
 
-
 # Input
-HEADERS += localshare.h discovery.h settings.h
+HEADERS += localshare.h discovery.h settings.h style.h
 SOURCES += main.cpp
