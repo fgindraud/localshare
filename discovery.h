@@ -29,6 +29,10 @@ class Service : public QObject {
 	Q_OBJECT
 
 	/* Registers at construction, and unregister at destruction.
+	 * Name of service is limited to kDNSServiceMaxServiceName utf8 bytes (64B including '\0'
+	 * currently). Longer names will be truncated by the library, so do nothing about that. The actual
+	 * registered name will be provided by the callback and given to the app through the registered
+	 * signal.
 	 *
 	 * Errors are critical.
 	 */
@@ -275,7 +279,7 @@ private slots:
 
 	void resolved_peer_added (Peer peer) {
 		qDebug () << "Browser: new_peer" << peer.username << peer.address << peer.port;
-		
+
 		auto peer_ref = discovered_by_name (peer.username);
 		if (peer_ref == discovered_peers.end ()) {
 			discovered_peers.append (peer);
@@ -286,5 +290,7 @@ private slots:
 	}
 };
 }
+
+Q_DECLARE_METATYPE (Discovery::Peer);
 
 #endif

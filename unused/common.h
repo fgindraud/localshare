@@ -8,33 +8,6 @@
 #include <QSettings>
 
 /*
- * Handle program settings, and defaults values
- */
-namespace Settings {
-/* Network settings */
-QString name (void);
-void setName (const QString & name);
-
-quint16 tcpPort (void);
-void setTcpPort (quint16 port);
-
-int tcpKeepAliveTime (void);
-void setTcpKeepAliveTime (int sec);
-
-/* Download path/confirmation settings */
-QString downloadPath (void);
-void setDownloadPath (const QString & path);
-
-bool alwaysDownload (void);
-bool defaultAlwaysDownload (void);
-void setAlwaysDownload (bool always);
-
-/* Use system tray */
-bool useSystemTray (void);
-void setUseSystemTray (bool use);
-}
-
-/*
  * Error messages
  */
 namespace Message {
