@@ -1,28 +1,30 @@
-# Needs c++11
-CONFIG += c++11
+CONFIG += c++14
 
 TEMPLATE = app
 
 DEPENDPATH += .
 INCLUDEPATH += .
 
+HEADERS += localshare.h discovery.h settings.h style.h transfer.h
+SOURCES += main.cpp
+
 QT += core network widgets
-RESOURCES += icon.qrc
 
 # DNS service discovery library
-unix {
+unix:!macx: { # Linux
 	# Provided by avahi-compat-libdns_sd
 	LIBS += -ldns_sd
 }
-mac {
-	# Seems to be part of stdlib there
+macx: { # Mac
+	# No specific library needed
 }
-win32 {
+win32: { # Win
 	# Provided by mDNSResponder (Bonjour windows service)
 	# May require custom LIBPATH/INCLUDEPATH
 	LIBS += -ldnssd
 }
 
-# Input
-HEADERS += localshare.h discovery.h settings.h style.h
-SOURCES += main.cpp
+RESOURCES += icon.qrc
+
+macx: ICON = mac/icon.icns # Mac bundle icon
+
