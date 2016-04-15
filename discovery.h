@@ -1,10 +1,9 @@
 #ifndef DISCOVERY_H
 #define DISCOVERY_H
 
-#include <utility>
+#include <utility> // std::forward
 #include <QtNetwork>
 
-#include "settings.h"
 #include "localshare.h"
 
 #include <dns_sd.h>
@@ -19,14 +18,15 @@ class Browser;
  */
 struct Peer {
 	QString username;
-	QHostAddress address;
+	QString hostname;
+	QHostAddress address; // FIXME not needed as Q*Socket can do host lookup on connection
 	quint16 port;
 };
 
 inline QDebug operator<<(QDebug debug, const Peer & peer) {
 	QDebugStateSaver saver (debug);
-	debug.nospace () << "Discovery::Peer(" << peer.username << ", " << peer.address << ", "
-	                 << peer.port << ")";
+	debug.nospace () << "Discovery::Peer(" << peer.username << ", " << peer.hostname << ", "
+	                 << peer.address << ", " << peer.port << ")";
 	return debug;
 }
 
@@ -182,8 +182,9 @@ private:
 		auto c = static_cast<Resolver *> (context);
 		if (error_code == kDNSServiceErr_NoError) {
 			c->peer_info.port = qFromBigEndian (port);
+			c->peer_info.hostname = hostname;
 			c->hostname_lookup_id =
-			    QHostInfo::lookupHost (hostname, c, SLOT (hostname_resolved (QHostInfo)));
+			    QHostInfo::lookupHost (c->peer_info.hostname, c, SLOT (hostname_resolved (QHostInfo)));
 		} else {
 			qWarning () << "DNSServiceResolve error [callback]:" << error_code;
 			c->deleteLater ();
@@ -219,10 +220,8 @@ class Browser : public QObject {
 	 * Errors are critical.
 	 */
 private:
-	using PeerRef = QList<Peer>::iterator;
-
-	QList<Peer> discovered_peers;
-	const QString instance_username; // our username, to discard when browsed
+	QMap<QString, Peer> discovered_peers; // by name
+	const QString instance_username;      // our username, to discard when browsed
 
 signals:
 	void added (Peer);
@@ -234,8 +233,6 @@ public:
 		DnsSocket::fromBrowse (this, 0 /* flags */, 0 /* interface */, qUtf8Printable (service_name),
 		                       nullptr /* default domain */, browser_callback, this /* context */);
 	}
-
-	const QList<Peer> & peer_list (void) const { return discovered_peers; }
 
 private:
 	static void browser_callback (DNSServiceRef, DNSServiceFlags flags, uint32_t interface_index,
@@ -253,10 +250,10 @@ private:
 				// Peer is removed
 				auto username = QString (name);
 				if (username != c->instance_username) {
-					auto peer_ref = c->discovered_by_name (username);
-					if (peer_ref != c->discovered_peers.end ()) {
-						emit c->removed (*peer_ref);
-						c->discovered_peers.erase (peer_ref);
+					auto it = c->discovered_peers.find (username);
+					if (it != c->discovered_peers.end ()) {
+						emit c->removed (*it);
+						c->discovered_peers.erase (it);
 					} else {
 						qWarning () << "Browser: remove: peer does not exists:" << username;
 					}
@@ -267,19 +264,11 @@ private:
 		}
 	}
 
-	PeerRef discovered_by_name (const QString & username) {
-		for (auto it = discovered_peers.begin (); it != discovered_peers.end (); ++it)
-			if (it->username == username)
-				return it;
-		return discovered_peers.end ();
-	}
-
 private slots:
 	void resolved_peer_added (Peer peer) {
 		if (peer.username != instance_username) {
-			auto peer_ref = discovered_by_name (peer.username);
-			if (peer_ref == discovered_peers.end ()) {
-				discovered_peers.append (peer);
+			if (not discovered_peers.contains (peer.username)) {
+				discovered_peers.insert (peer.username, peer);
 				emit added (peer);
 			} else {
 				qWarning () << "Browser: add: peer already exists:" << peer.username;
