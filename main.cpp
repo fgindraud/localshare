@@ -1,5 +1,6 @@
 #include "discovery.h"
 #include "settings.h"
+#include "style.h"
 #include "localshare.h"
 
 #include <QApplication>
@@ -10,7 +11,7 @@ int main (int argc, char * argv[]) {
 	QCoreApplication::setApplicationName (Const::app_name);
 
 	QApplication app (argc, argv);
-	// app.setWindowIcon (Icon::app ());
+	app.setWindowIcon (Icon::app ());
 
 	auto username = Settings::Username ().get ();
 	if (argc >= 2)

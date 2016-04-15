@@ -16,29 +16,6 @@ void warning (const QString & title, const QString & message);
 }
 
 /*
- * Icon settings for the application
- */
-namespace Icon {
-// Application icon
-QIcon app (void);
-
-// Represents a file
-QIcon file (void);
-
-// Open file & Settings dialog buttons
-QIcon openFile (void);
-QIcon settings (void);
-
-// Accept and refuse/close icon
-QIcon accept (void);
-QIcon closeAbort (void);
-
-// In/out-bound transfer icons
-QIcon inbound (void);
-QIcon outbound (void);
-};
-
-/*
  * File utilities
  */
 namespace FileUtils {

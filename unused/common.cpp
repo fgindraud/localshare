@@ -29,43 +29,6 @@ void warning (const QString & title, const QString & message) {
 }
 }
 
-/* ------ Icons ------ */
-
-namespace Icon {
-namespace {
-	QCommonStyle style;
-}
-
-QIcon app (void) {
-	return QIcon (":/icon.svg");
-}
-
-QIcon file (void) {
-	return style.standardIcon (QStyle::SP_FileIcon);
-}
-
-QIcon openFile (void) {
-	return style.standardIcon (QStyle::SP_DirIcon);
-}
-QIcon settings (void) {
-	return style.standardIcon (QStyle::SP_ComputerIcon);
-}
-
-QIcon accept (void) {
-	return style.standardIcon (QStyle::SP_DialogOkButton);
-}
-QIcon closeAbort (void) {
-	return style.standardIcon (QStyle::SP_DialogCancelButton);
-}
-
-QIcon inbound (void) {
-	return style.standardIcon (QStyle::SP_ArrowDown);
-}
-QIcon outbound (void) {
-	return style.standardIcon (QStyle::SP_ArrowUp);
-}
-}
-
 /* ------ File size ------ */
 
 namespace FileUtils {
