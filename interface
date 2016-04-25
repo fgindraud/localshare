@@ -1,0 +1,8 @@
+Table of peers (ignore, stats of requests, drop target to initiate transfer)
+
+Table of transfers (all peers)
+Transfer:
+- direction
+- peer
+- accept / reject button
+- status..

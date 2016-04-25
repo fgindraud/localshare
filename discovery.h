@@ -4,6 +4,7 @@
 #include <utility> // std::forward
 #include <QtNetwork>
 
+#include "settings.h"
 #include "localshare.h"
 
 #include <dns_sd.h>
