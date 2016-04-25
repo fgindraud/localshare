@@ -1,23 +1,3 @@
-#include "localshare.h"
-#include "common.h"
-
-#include <utility>
-
-#include <QMessageBox>
-#include <QProcessEnvironment>
-#include <QSystemTrayIcon>
-#include <QApplication>
-#include <QDir>
-#include <QFileInfo>
-
-	    [](bool enabled) { return enabled && QSystemTrayIcon::isSystemTrayAvailable (); });
-
-/* ----- Message ----- */
-
-/*
- * User-level error and warning messages
- */
-
 namespace Message {
 void error (const QString & title, const QString & message) {
 	QMessageBox::critical (0, title, message);
