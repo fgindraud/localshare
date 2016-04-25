@@ -4,7 +4,6 @@
 #include <utility> // std::forward
 #include <QtNetwork>
 
-#include "settings.h"
 #include "localshare.h"
 
 #include <dns_sd.h>
@@ -20,7 +19,7 @@ class Browser;
 struct Peer {
 	QString username;
 	QString hostname;
-	QHostAddress address; // FIXME not needed as Q*Socket can do host lookup on connection
+	QHostAddress address;
 	quint16 port; // Stored in host byte order
 };
 

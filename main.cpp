@@ -3,6 +3,7 @@
 #include "style.h"
 #include "transfer.h"
 #include "localshare.h"
+#include "window.h"
 
 #include <QApplication>
 #include <QTimer>
@@ -31,9 +32,10 @@ int main (int argc, char * argv[]) {
 		                  [](const Discovery::Peer & peer) { qDebug () << "removed" << peer; });
 	});
 
-	QTimer::singleShot (10 * 1000, &app, &QApplication::quit);
+	//QTimer::singleShot (10 * 1000, &app, &QApplication::quit);
 
-	Transfer::Upload upload (Discovery::Peer {"user", "hostname", QHostAddress::LocalHost, server.port ()});
+	//Transfer::Upload upload (Discovery::Peer {"user", "hostname", QHostAddress::LocalHost, server.port ()});
+	Window window;
 
 	return app.exec ();
 }

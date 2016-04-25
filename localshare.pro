@@ -5,7 +5,7 @@ TEMPLATE = app
 DEPENDPATH += .
 INCLUDEPATH += .
 
-HEADERS += localshare.h discovery.h settings.h style.h transfer.h
+HEADERS += localshare.h discovery.h settings.h style.h transfer.h window.h
 SOURCES += main.cpp
 
 QT += core network widgets

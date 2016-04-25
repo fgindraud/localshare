@@ -1,17 +1,5 @@
 #include "mainWindow.h"
 
-/* ----- MainWindow ----- */
-
-MainWindow::MainWindow (ZeroconfHandler * discoveryHandler) : mTray (0) {
-	createMainWindow ();
-	connectSignals (discoveryHandler);
-
-	if (Settings::useSystemTray ())
-		trayIconEnabledAdditionalSetup ();
-
-	show ();
-}
-
 void MainWindow::createMainWindow (void) {
 	// WIndow
 	setWindowFlags (Qt::Window);
@@ -62,21 +50,6 @@ void MainWindow::connectSignals (ZeroconfHandler * discoveryHandler) {
 			this, SLOT (invokeSettings ()));
 }
 
-void MainWindow::trayIconEnabledAdditionalSetup (void) {
-	// Create tray icon, connect signals
-	mTray = new TrayIcon (this);
-	
-	// Prevent window deletion on close : will only hide it
-	setAttribute (Qt::WA_DeleteOnClose, false);
-
-	// Prevent application from quitting when window is closed
-	setAttribute (Qt::WA_QuitOnClose, false);
-}
-
-void MainWindow::windowVisibilityToggled (void) {
-	setVisible (not isVisible ());
-}
-
 void MainWindow::addFiles (void) {
 	// Get files from dialog
 	QStringList addedFiles = QFileDialog::getOpenFileNames (this);
@@ -84,69 +57,6 @@ void MainWindow::addFiles (void) {
 	// Put them in holder area
 	foreach (QString file, addedFiles)
 		mSendFileArea->addFile (file);
-}
-
-void MainWindow::invokeSettings (void) {
-	//TODO
-}
-
-/* ------ Tray icon ------ */
-TrayIcon::TrayIcon (MainWindow * window) : QSystemTrayIcon () {
-	createMenu ();
-	connectToWindow (window);
-	show ();
-}
-
-TrayIcon::~TrayIcon () { delete mContext; }
-
-void TrayIcon::createMenu (void) {
-	// Select tray icon
-	setIcon (Icon::app ());
-	
-	// Create menu
-	mContext = new QMenu;
-	setContextMenu (mContext);
-	
-	mOpenFile = new QAction ("Open file...", this);
-	mContext->addAction (mOpenFile);
-
-	mSettings = new QAction ("Settings...", this);
-	mContext->addAction (mSettings);
-	
-	mExit = new QAction ("Quit", this);
-	mContext->addAction (mExit);
-
-	// Connect internal signal
-	QObject::connect (this, SIGNAL (activated (QSystemTrayIcon::ActivationReason)),
-		this, SLOT (wasClicked (QSystemTrayIcon::ActivationReason)));	
-	
-	// Exit
-	QObject::connect (mExit, SIGNAL (triggered ()), qApp, SLOT (quit ()));
-}
-
-void TrayIcon::connectToWindow (MainWindow * window) {
-	// Open file
-	// Show main window before opening dialog
-	QObject::connect (mOpenFile, SIGNAL (triggered ()),
-			window, SLOT (show ()));
-	QObject::connect (mOpenFile, SIGNAL (triggered ()),
-			window, SLOT (addFiles ()));
-	
-	// Settings (similar)
-	QObject::connect (mSettings, SIGNAL (triggered ()),
-			window, SLOT (show ()));
-	QObject::connect (mSettings, SIGNAL (triggered ()),
-			window, SLOT (invokeSettings ()));
-	
-	// Add minimize-to-tray system
-	QObject::connect (this, SIGNAL (mainWindowToggled ()),
-			window, SLOT (windowVisibilityToggled ()));
-}
-
-void TrayIcon::wasClicked (QSystemTrayIcon::ActivationReason reason) {
-	// Only propagate click event on simple clicks
-	if (reason == QSystemTrayIcon::Trigger)
-		emit mainWindowToggled ();
 }
 
 /* ------ Send File Area ------ */
