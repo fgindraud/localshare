@@ -2,11 +2,15 @@ CONFIG += c++11
 
 TEMPLATE = app
 
-DEPENDPATH += .
-INCLUDEPATH += .
-
-HEADERS += localshare.h discovery.h settings.h style.h transfer.h window.h
-SOURCES += main.cpp
+HEADERS += src/localshare.h \
+			src/discovery.h \
+			src/settings.h \
+			src/style.h \
+			src/transfer.h \
+			src/peer_list.h \
+			src/transfer_list.h \
+			src/window.h
+SOURCES += src/main.cpp
 
 QT += core network widgets
 
@@ -24,7 +28,7 @@ win32: { # Win
 	LIBS += -ldnssd
 }
 
-RESOURCES += icon.qrc
+RESOURCES += resources/resources.qrc
 
-macx: ICON = mac/icon.icns # Mac bundle icon
+macx: ICON = resources/mac/icon.icns # Mac bundle icon
 

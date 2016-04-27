@@ -9,11 +9,19 @@ Status
 Done:
 * mDNS browsing
 * settings
-* interface (peer list)
+* interface (peer list) basic
 
 Todo:
 * interface (transfers)
-* transfer protocol
+* transfer protocol (file only)
+* peer list (interface):
+	* sliders if too large ?
+	* use tree/table view
+	* support pinning peers (moved to top)
+	* adding manual peers (by hostname or ip) / give info on local port/ip
+* transfer protocol (directories, using tar.gz or streaming a tar like format
+* discovery browser/service error handling (low probability)
+* get attention if minimized (modified icon / OS specific way)
 
 Setup
 -----
