@@ -53,7 +53,14 @@ class DownloadPath : public Element<QString> {
 	// Place to store downloaded files
 private:
 	const char * key (void) const { return "download/path"; }
-	QString default_value (void) const { return QDir::homePath (); }
+	QString default_value (void) const {
+		auto path = QStandardPaths::displayName (QStandardPaths::DownloadLocation);
+		if (!path.isEmpty ()) {
+			return path;
+		} else {
+			return QDir::homePath ();
+		}
+	}
 };
 
 class DownloadAuto : public Element<bool> {

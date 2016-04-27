@@ -14,23 +14,6 @@ class Service;
 class Browser;
 
 /*
- * Peer information
- */
-struct Peer {
-	QString username;
-	QString hostname;
-	QHostAddress address;
-	quint16 port; // Stored in host byte order
-};
-
-inline QDebug operator<<(QDebug debug, const Peer & peer) {
-	QDebugStateSaver saver (debug);
-	debug.nospace () << "Discovery::Peer(" << peer.username << ", " << peer.hostname << ", "
-	                 << peer.address << ", " << peer.port << ")";
-	return debug;
-}
-
-/*
  * Helper class to manage a DNSServiceRef
  */
 class DnsSocket : public QObject {
@@ -102,6 +85,7 @@ class Service : public QObject {
 	 * signal.
 	 *
 	 * Errors are critical.
+	 * TODO expose them and handle them ?
 	 */
 signals:
 	void registered (QString name);
@@ -218,14 +202,15 @@ class Browser : public QObject {
 	 * Emits added/removed signals to indicate changes to peer list.
 	 *
 	 * Errors are critical.
+	 * TODO expose them and handle them ?
 	 */
 private:
-	QMap<QString, Peer> discovered_peers; // by name
-	const QString instance_username;      // our username, to discard when browsed
+	QSet<QString> discovered_peers;  // by name
+	const QString instance_username; // our username, to discard when browsed
 
 signals:
 	void added (Peer);
-	void removed (Peer);
+	void removed (QString);
 
 public:
 	Browser (const QString & username, const QString & service_name, QObject * parent = nullptr)
@@ -252,8 +237,8 @@ private:
 				if (username != c->instance_username) {
 					auto it = c->discovered_peers.find (username);
 					if (it != c->discovered_peers.end ()) {
-						emit c->removed (*it);
 						c->discovered_peers.erase (it);
+						emit c->removed (username);
 					} else {
 						qWarning () << "Browser: remove: peer does not exists:" << username;
 					}
@@ -268,7 +253,7 @@ private slots:
 	void resolved_peer_added (Peer peer) {
 		if (peer.username != instance_username) {
 			if (not discovered_peers.contains (peer.username)) {
-				discovered_peers.insert (peer.username, peer);
+				discovered_peers.insert (peer.username);
 				emit added (peer);
 			} else {
 				qWarning () << "Browser: add: peer already exists:" << peer.username;

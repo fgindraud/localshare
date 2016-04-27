@@ -1,12 +1,9 @@
-#include "discovery.h"
-#include "settings.h"
-#include "style.h"
-#include "transfer.h"
 #include "localshare.h"
+#include "style.h"
+
 #include "window.h"
 
 #include <QApplication>
-#include <QTimer>
 
 int main (int argc, char * argv[]) {
 	// Enable usage of QSettings default constructor
@@ -16,26 +13,14 @@ int main (int argc, char * argv[]) {
 	QApplication app (argc, argv);
 	app.setWindowIcon (Icon::app ());
 
-	auto username = Settings::Username ().get ();
+	QString blah;
 	if (argc >= 2)
-		username += argv[1];
+		blah = argv[1];
 
-	Transfer::Server server;
-	Discovery::Service serv{username, Const::service_name, server.port ()};
+	Window window (blah);
 
-	QObject::connect (&serv, &Discovery::Service::registered, [&](QString name) {
-		auto b = new Discovery::Browser{name, Const::service_name, &serv};
-
-		QObject::connect (b, &Discovery::Browser::added,
-		                  [](const Discovery::Peer & peer) { qDebug () << "added" << peer; });
-		QObject::connect (b, &Discovery::Browser::removed,
-		                  [](const Discovery::Peer & peer) { qDebug () << "removed" << peer; });
-	});
-
-	//QTimer::singleShot (10 * 1000, &app, &QApplication::quit);
-
-	//Transfer::Upload upload (Discovery::Peer {"user", "hostname", QHostAddress::LocalHost, server.port ()});
-	Window window;
+	// FIXME ensure quit for tests
+	QTimer::singleShot (30 * 1000, &app, &QApplication::quit);
 
 	return app.exec ();
 }

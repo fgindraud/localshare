@@ -141,12 +141,12 @@ private:
 	Status status{Status::Disconnected};
 	qint64 next_message_size{-1};
 
-	Discovery::Peer peer;
+	Peer peer;
 	Payload payload;
 	Sizes sizes;
 
 public:
-	Upload (const Discovery::Peer & peer, QObject * parent = nullptr)
+	Upload (const Peer & peer, QObject * parent = nullptr)
 	    : QObject (parent), socket_stream (&socket), peer (peer) {
 		socket_stream.setVersion (Const::serializer_version);
 

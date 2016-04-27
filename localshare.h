@@ -2,6 +2,8 @@
 #define LOCALSHARE_H
 
 #include <QDataStream>
+#include <QHostAddress>
+#include <QDebug>
 
 namespace Const {
 // Application name for settings, etc...
@@ -17,6 +19,23 @@ constexpr quint16 protocol_magic = 0x0CAA;
 
 // Graphical
 constexpr int drag_icon_size = 32; // Size of icons attached to cursor during drag&drop operations
+}
+
+/*
+ * Peer information
+ */
+struct Peer {
+	QString username;
+	QString hostname;
+	QHostAddress address;
+	quint16 port; // Stored in host byte order
+};
+
+inline QDebug operator<<(QDebug debug, const Peer & peer) {
+	QDebugStateSaver saver (debug);
+	debug.nospace () << "Peer(" << peer.username << ", " << peer.hostname << ", " << peer.address
+	                 << ", " << peer.port << ")";
+	return debug;
 }
 
 #endif
