@@ -1,12 +1,15 @@
 #ifndef DISCOVERY_H
 #define DISCOVERY_H
 
+#include <QSocketNotifier>
+#include <QHostInfo>
+#include <QSet>
+#include <QtEndian>
+
 #include <utility> // std::forward
-#include <QtNetwork>
+#include <dns_sd.h>
 
 #include "localshare.h"
-
-#include <dns_sd.h>
 
 namespace Discovery {
 

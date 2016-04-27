@@ -15,19 +15,17 @@ inline QIcon app (void) {
 	return QIcon (":/icon.svg");
 }
 
-inline QIcon file (void) {
+inline QIcon send (void) {
 	return from_style (QStyle::SP_FileIcon);
 }
-inline QIcon openFile (void) {
-	return from_style (QStyle::SP_DirIcon);
+inline QIcon quit (void) {
+	return from_style (QStyle::SP_DialogCloseButton);
 }
-inline QIcon settings (void) {
-	return from_style (QStyle::SP_ComputerIcon);
-}
+
 inline QIcon accept (void) {
 	return from_style (QStyle::SP_DialogOkButton);
 }
-inline QIcon closeAbort (void) {
+inline QIcon reject (void) {
 	return from_style (QStyle::SP_DialogCancelButton);
 }
 inline QIcon inbound (void) {

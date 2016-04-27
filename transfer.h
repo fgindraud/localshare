@@ -1,15 +1,16 @@
 #ifndef TRANSFER_H
 #define TRANSFER_H
 
+#include <QtNetwork>
 #include <limits>
 #include <type_traits>
-#include <QtNetwork>
 
 #include "localshare.h"
 #include "discovery.h"
 
 namespace Transfer {
 
+#if 0
 struct Payload {
 	QString filename;
 	qint64 size;
@@ -225,8 +226,8 @@ private:
 		// Received handshake
 		if (socket.bytesAvailable () < sizes.handshake)
 			return false;
-		std::remove_const_t<decltype (Const::protocol_magic)> magic;
-		std::remove_const_t<decltype (Const::protocol_version)> version;
+		std::remove_const<decltype (Const::protocol_magic)>::type magic;
+		std::remove_const<decltype (Const::protocol_version)>::type version;
 		socket_stream >> magic >> version;
 		if (!check_datastream ())
 			return false;
@@ -281,6 +282,7 @@ private:
 
 	bool da_transfering (void) { return false; }
 };
+#endif
 
 class Server : public QObject {
 	Q_OBJECT

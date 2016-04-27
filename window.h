@@ -28,8 +28,9 @@ public:
 		connect (browser, &Discovery::Browser::added, this, &PeerListModel::peer_added);
 		connect (browser, &Discovery::Browser::removed, this, &PeerListModel::peer_removed);
 
-		peer_list << Peer{"bloh", "kitty", QHostAddress ("192.44.29.1"), 42};
-		peer_list << Peer{"John", "eurobeat", QHostAddress ("8.8.8.8"), 1000};
+		// FIXME remove
+		peer_list << Peer{"test_bloh", "kitty", QHostAddress ("192.44.29.1"), 42};
+		peer_list << Peer{"test_john", "eurobeat", QHostAddress ("8.8.8.8"), 1000};
 	}
 
 	// Peer access
@@ -118,7 +119,7 @@ private slots:
 	}
 };
 
-class Window : public QWidget {
+class Window : public QMainWindow {
 	Q_OBJECT
 
 	/* Main window of application.
@@ -127,11 +128,11 @@ class Window : public QWidget {
 	 */
 private:
 	QSystemTrayIcon * tray{nullptr};
-	QPushButton * send_file_button{nullptr};
+	QAction * action_send{nullptr};
 	QAbstractItemView * peer_list_view{nullptr};
 
 public:
-	Window (const QString & blah) {
+	Window (const QString & blah, QWidget * parent = nullptr) : QMainWindow (parent) {
 		// Start server
 		auto server = new Transfer::Server (this);
 
@@ -140,50 +141,92 @@ public:
 		auto service = new Discovery::Service (username, Const::service_name, server->port (), this);
 		connect (service, &Discovery::Service::registered, this, &Window::service_registered);
 
-		// Layout
-		auto layout = new QGridLayout ();
-		setLayout (layout);
+		// Common actions
+		action_send = new QAction (Icon::send (), tr ("&Send..."), this);
+		action_send->setShortcuts (QKeySequence::Open);
+		action_send->setToolTip ("Selects a file to send to selected peers (requires selection)");
+		action_send->setEnabled (false);
+
+		auto action_quit = new QAction (Icon::quit (), tr ("&Quit"), this);
+		action_quit->setShortcuts (QKeySequence::Quit);
+		action_quit->setMenuRole (QAction::QuitRole);
+		connect (action_quit, &QAction::triggered, qApp, &QCoreApplication::quit);
 
 		// Peer table
-		send_file_button = new QPushButton (tr ("&Send file..."), this);
-		send_file_button->setEnabled (false);
-		layout->addWidget (send_file_button, 0, 1, Qt::AlignCenter);
-
 		peer_list_view = new QListView (this);
 		peer_list_view->setAlternatingRowColors (true);
 		peer_list_view->setAcceptDrops (true);
 		peer_list_view->setDropIndicatorShown (true);
 		peer_list_view->setSelectionMode (QAbstractItemView::ExtendedSelection);
-		layout->addWidget (peer_list_view, 0, 0);
+		setCentralWidget (peer_list_view);
 
 		// System tray
+		auto setting_show_tray = Settings::UseTray ().get ();
 		tray = new QSystemTrayIcon (this);
 		tray->setIcon (Icon::app ());
-		tray->show ();
+		tray->setVisible (setting_show_tray);
 		connect (tray, &QSystemTrayIcon::activated, this, &Window::tray_activated);
 
 		{
-			// Tray menu
-			auto menu = new QMenu (this);
-			auto action_quit = new QAction (tr ("&Quit"), menu);
-			connect (action_quit, &QAction::triggered, qApp, &QCoreApplication::quit);
+			auto show_window = new QAction (tr ("Show &Window"), this);
+			connect (show_window, &QAction::triggered, this, &QWidget::show);
 
+			auto menu = new QMenu (this);
+			menu->addAction (show_window);
+			menu->addSeparator ();
 			menu->addAction (action_quit);
 			tray->setContextMenu (menu);
 		}
 
 		// Window
-		setWindowFlags (Qt::Window);
 		setWindowTitle (Const::app_name);
+		{
+			auto file = menuBar ()->addMenu (tr ("&File"));
+			file->addAction (action_send);
+			file->addSeparator ();
+			file->addAction (action_quit);
+
+			// Pref
+			auto use_tray = new QAction (tr ("Use System &Tray"), this);
+			use_tray->setCheckable (true);
+			use_tray->setChecked (setting_show_tray);
+			connect (use_tray, &QAction::triggered, [=](bool checked) {
+				Settings::UseTray ().set (checked);
+				tray->setVisible (checked);
+			});
+
+			auto pref = menuBar ()->addMenu (tr ("&Preferences"));
+			pref->addAction (use_tray);
+
+			// About
+			auto about_qt = new QAction (tr ("About &Qt"), this);
+			about_qt->setMenuRole (QAction::AboutQtRole);
+			connect (about_qt, &QAction::triggered, qApp, &QApplication::aboutQt);
+
+			auto about = new QAction (tr ("&About"), this);
+			about->setMenuRole (QAction::AboutRole);
+			connect (about, &QAction::triggered, [=] {
+				QMessageBox::about (this, tr ("About Localshare"),
+				                    tr ("Localshare is a small file sharing app for the local network."));
+				// TODO improve description
+			});
+
+			auto help = menuBar ()->addMenu (tr ("&Help"));
+			help->addAction (about_qt);
+			help->addAction (about);
+		}
 		show ();
 	}
 
 protected:
 	void closeEvent (QCloseEvent * event) {
-		if (tray->isVisible ()) {
-			// Do not kill app, just hide window
+		if (event->spontaneous () && isVisible () && tray->isVisible ()) {
+			// If tray is used, and user asked to close the window, then hide it instead.
 			hide ();
 			event->ignore ();
+			// It accepts the close if the window was not visible (ex: OSX close request from menu)
+		} else {
+			event->accept ();
 		}
 	}
 
@@ -197,14 +240,13 @@ private slots:
 		peer_list_view->setModel (peer_list_model);
 		connect (peer_list_model, &PeerListModel::request_upload, this, &Window::upload_requested);
 
-		// Send_file button : enable if something is selected
-		connect (peer_list_view->selectionModel (), &QItemSelectionModel::selectionChanged,
-		         [=](const QItemSelection & selection) {
-			         send_file_button->setEnabled (!selection.isEmpty ());
-			       });
+		// Send action : enable if something is selected
+		connect (
+		    peer_list_view->selectionModel (), &QItemSelectionModel::selectionChanged,
+		    [=](const QItemSelection & selection) { action_send->setEnabled (!selection.isEmpty ()); });
 		// Select and send file to selection if clicked
-		connect (send_file_button, &QPushButton::clicked, [=] {
-			QString path = QFileDialog::getOpenFileName (this, tr ("Send file..."));
+		connect (action_send, &QAction::triggered, [=] {
+			QString path = QFileDialog::getOpenFileName (this, tr ("Choose file..."));
 			if (path.isEmpty ())
 				return;
 			auto selection = peer_list_view->selectionModel ()->selectedIndexes ();
@@ -216,9 +258,8 @@ private slots:
 
 	void tray_activated (QSystemTrayIcon::ActivationReason reason) {
 		switch (reason) {
-		case QSystemTrayIcon::Trigger:
-		case QSystemTrayIcon::DoubleClick:
-			setVisible (!isVisible ()); // Toggle window visibility
+		case QSystemTrayIcon::DoubleClick: // Only double click
+			setVisible (!isVisible ());      // Toggle window visibility
 			break;
 		default:
 			break;

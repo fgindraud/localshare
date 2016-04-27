@@ -20,7 +20,7 @@ int main (int argc, char * argv[]) {
 	Window window (blah);
 
 	// FIXME ensure quit for tests
-	QTimer::singleShot (30 * 1000, &app, &QApplication::quit);
+	//QTimer::singleShot (30 * 1000, &app, &QApplication::quit);
 
 	return app.exec ();
 }

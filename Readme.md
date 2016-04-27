@@ -9,17 +9,20 @@ Status
 Done:
 * mDNS browsing
 * settings
+* interface (peer list)
 
 Todo:
-* interface
+* interface (transfers)
 * transfer protocol
 
 Setup
 -----
 
 Compilation:
-> qmake
-> make
+```
+qmake
+make
+```
 
 Requires Qt5 and c++11 compiler support.
 
@@ -37,8 +40,7 @@ More precisely, it uses the *Bonjour* API to implement mDNS Service Discovery.
 	- *Avahi* should be configured to resolve `.local` hostnames (https://wiki.archlinux.org/index.php/avahi#Hostname_resolution)
 	- *Bonjour* API compatibility layer should be installed (`avahi-compat-libdns_sd`)
 * Mac:
-	- **Not tested**
-	- Should not need any specific setup as Bonjour is native to Mac
+	- Bonjour is native to Mac, no library required
 * Windows:
 	- **Not tested**
 	- Support through *mDNSResponder* (Bonjour Windows service, provided by apple)

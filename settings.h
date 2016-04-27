@@ -1,7 +1,10 @@
 #ifndef SETTINGS_H
 #define SETTINGS_H
 
-#include <QtCore>
+#include <QSettings>
+#include <QProcessEnvironment>
+#include <QStandardPaths>
+#include <QDir>
 
 namespace Settings {
 
@@ -68,6 +71,13 @@ class DownloadAuto : public Element<bool> {
 private:
 	const char * key (void) const { return "download/auto"; }
 	bool default_value (void) const { return false; }
+};
+
+class UseTray : public Element<bool> {
+	// Allow use of system tray icon if supported
+private:
+	const char * key (void) const { return "interface/use_tray"; }
+	bool default_value (void) const { return true; }
 };
 }
 
