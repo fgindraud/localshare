@@ -5,11 +5,23 @@
 #include "discovery.h"
 #include "settings.h"
 #include "style.h"
-#include "peer_list.h"
+#include "transfer_model.h"
 #include "transfer.h"
-#include "transfer_list.h"
+#include "peer_list.h"
 
-#include <QtWidgets>
+#include <QItemSelectionModel>
+#include <QMainWindow>
+#include <QSystemTrayIcon>
+#include <QTreeView>
+#include <QSplitter>
+#include <QAction>
+#include <QMenu>
+#include <QStatusBar>
+#include <QCloseEvent>
+#include <QMenuBar>
+#include <QFileDialog>
+#include <QMessageBox>
+#include <QApplication>
 
 class Window : public QMainWindow {
 	Q_OBJECT
@@ -20,8 +32,9 @@ class Window : public QMainWindow {
 	 */
 private:
 	QSystemTrayIcon * tray{nullptr};
-	QAction * action_send{nullptr};
+
 	QAbstractItemView * peer_list_view{nullptr};
+	PeerListModel * peer_list_model{nullptr};
 	Transfer::ListModel * transfer_list_model{nullptr};
 
 public:
@@ -40,10 +53,11 @@ public:
 		setWindowTitle (Const::app_name);
 
 		// Common actions
-		action_send = new QAction (Icon::send (), tr ("&Send..."), this);
+		auto action_send = new QAction (Icon::send (), tr ("&Send..."), this);
 		action_send->setShortcuts (QKeySequence::Open);
 		action_send->setEnabled (false);
 		action_send->setStatusTip (tr ("Chooses a file to send to selected peers"));
+		connect (action_send, &QAction::triggered, this, &Window::action_send_clicked);
 
 		auto action_quit = new QAction (Icon::quit (), tr ("&Quit"), this);
 		action_quit->setShortcuts (QKeySequence::Quit);
@@ -58,15 +72,26 @@ public:
 
 		// Peer table
 		{
-			auto view = new QListView (splitter);
+			auto view = new QTreeView (splitter);
 			view->setAlternatingRowColors (true);
+			view->setRootIsDecorated (false);
 			view->setAcceptDrops (true);
 			view->setDropIndicatorShown (true);
 			view->setSelectionBehavior (QAbstractItemView::SelectRows);
 			view->setSelectionMode (QAbstractItemView::ExtendedSelection);
+			view->setSortingEnabled (true);
 			view->setStatusTip (
-			    tr ("List of discovered peers (select at least one to enable File->Send...)"));
+			    tr ("List of discovered peers (select at least one to enable File/Send...)"));
 			peer_list_view = view;
+
+			auto model = new PeerListModel (view);
+			view->setModel (model);
+			peer_list_model = model;
+
+			connect (view->selectionModel (), &QItemSelectionModel::selectionChanged,
+			         [=](const QItemSelection & selection) {
+				         action_send->setEnabled (!selection.isEmpty ());
+				       });
 		}
 
 		// Transfer table
@@ -75,13 +100,10 @@ public:
 			view->setAlternatingRowColors (true);
 			view->setRootIsDecorated (false);
 			view->setSelectionBehavior (QAbstractItemView::SelectRows);
-			// TODO
+			view->setSelectionMode (QAbstractItemView::NoSelection);
+			view->setSortingEnabled (true);
 
-			// FIXME model should derive directly from AbstractTreeModel
-			// Now we have a bug when "*" is used on the view
-			// Maybe define a "DetailedList" model, that links with treeview, and represents a list of
-			// item that each link to multiple columns
-			auto model = new Transfer::ListModel (this);
+			auto model = new Transfer::ListModel (view);
 			view->setModel (model);
 			transfer_list_model = model;
 		}
@@ -154,6 +176,10 @@ public:
 		statusBar ()->showMessage (tr ("Starting up..."));
 
 		show (); // Show everything
+
+		// FIXME remove (test)
+		peer_added (Peer{"NSA", "nsa.gov", QHostAddress ("192.44.29.1"), 42});
+		peer_added (Peer{"ANSSI", "anssi.fr", QHostAddress ("8.8.8.8"), 1000});
 	}
 
 protected:
@@ -174,26 +200,10 @@ private slots:
 		setWindowTitle (QString ("%1 - %2").arg (Const::app_name).arg (username));
 		statusBar ()->showMessage (tr ("Service registered as %1").arg (username));
 
-		// Start browsing and link to view
-		auto peer_list_model = new PeerListModel (username, peer_list_view);
-		peer_list_view->setModel (peer_list_model);
-		connect (peer_list_model, &PeerListModel::request_upload, this, &Window::request_upload);
-
-		// TODO check ownership
-		// Send action : enable if something is selected
-		connect (
-		    peer_list_view->selectionModel (), &QItemSelectionModel::selectionChanged,
-		    [=](const QItemSelection & selection) { action_send->setEnabled (!selection.isEmpty ()); });
-		// Select and send file to selection if clicked
-		connect (action_send, &QAction::triggered, [=] {
-			auto filepath = QFileDialog::getOpenFileName (this, tr ("Choose file to send..."));
-			if (filepath.isEmpty ())
-				return;
-			auto selection = peer_list_view->selectionModel ()->selectedIndexes ();
-			for (auto & index : selection)
-				if (peer_list_model->has_peer (index))
-					emit request_upload (peer_list_model->get_peer (index), filepath);
-		});
+		// Start browsing
+		auto browser = new Discovery::Browser (username, Const::service_name, peer_list_model);
+		connect (browser, &Discovery::Browser::added, this, &Window::peer_added);
+		connect (browser, &Discovery::Browser::removed, this, &Window::peer_removed);
 	}
 
 	void tray_activated (QSystemTrayIcon::ActivationReason reason) {
@@ -206,14 +216,38 @@ private slots:
 		}
 	}
 
+	void action_send_clicked (void) {
+		// Select and send file to selection if clicked
+		auto filepath = QFileDialog::getOpenFileName (this, tr ("Choose file to send..."));
+		if (filepath.isEmpty ())
+			return;
+		auto selection = peer_list_view->selectionModel ()->selectedIndexes ();
+		for (auto & index : selection) {
+			if (index.column () == 0 && peer_list_model->has_item (index)) {
+				// TreeView selected row generates 4 selection items ; only keep 1 per row
+				auto item = peer_list_model->get_item_t<PeerItem *> (index);
+				Q_ASSERT (item != nullptr);
+				request_upload (item->get_peer (), filepath);
+			}
+		}
+	}
+
+	void peer_added (const Peer & peer) {
+		auto item = new PeerItem (peer, peer_list_model);
+		connect (item, &PeerItem::request_upload, this, &Window::request_upload);
+		peer_list_model->append (item);
+	}
+
+	void peer_removed (const QString & username) { peer_list_model->delete_peer (username); }
+
 	void request_upload (const Peer & peer, const QString & filepath) {
 		auto upload = new Transfer::Upload (peer, filepath, transfer_list_model);
-		transfer_list_model->add_transfer (upload);
+		transfer_list_model->append (upload);
 	}
 
 	void incoming_connection (QAbstractSocket * connection) {
 		auto download = new Transfer::Download (connection);
-		transfer_list_model->add_transfer (download);
+		transfer_list_model->append (download);
 	}
 };
 

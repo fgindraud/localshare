@@ -6,32 +6,11 @@
 #include <type_traits>
 
 #include "localshare.h"
-#include "discovery.h"
+#include "transfer_model.h"
 
 namespace Transfer {
 
-enum class Direction { Upload, Download };
-
-class Base : public QObject {
-	Q_OBJECT
-
-public:
-	const Direction direction;
-
-signals:
-	void filename_changed (void);
-	void peer_changed (void);
-
-public:
-	Base (Direction direction, QObject * parent = nullptr)
-	    : QObject (parent), direction (direction) {}
-	virtual ~Base () = default;
-
-	virtual QString get_filename (void) const = 0;
-	virtual Peer get_peer (void) const = 0;
-};
-
-class Upload : public Base {
+class Upload : public Item {
 	Q_OBJECT
 
 	/* Upload objects are owned by the model.
@@ -43,13 +22,13 @@ private:
 
 public:
 	Upload (const Peer & peer, const QString & filename, QObject * parent = nullptr)
-	    : Base (Direction::Upload, parent), peer (peer), filename (filename) {}
+	    : Item (Direction::Upload, parent), peer (peer), filename (filename) {}
 
 	QString get_filename (void) const { return filename; }
 	Peer get_peer (void) const { return peer; }
 };
 
-class Download : public Base {
+class Download : public Item {
 	Q_OBJECT
 
 	/* Download objects are owned by the socket, which are owned by the server.
@@ -62,7 +41,7 @@ private:
 
 public:
 	Download (QAbstractSocket * connection)
-	    : Base (Direction::Download, connection), socket (connection) {}
+	    : Item (Direction::Download, connection), socket (connection) {}
 
 	QString get_filename (void) const { return filename; }
 	Peer get_peer (void) const {

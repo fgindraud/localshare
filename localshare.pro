@@ -1,4 +1,5 @@
 CONFIG += c++11
+CONFIG += debug
 
 TEMPLATE = app
 
@@ -6,9 +7,10 @@ HEADERS += src/localshare.h \
 			src/discovery.h \
 			src/settings.h \
 			src/style.h \
+			src/struct_item_model.h \
+			src/transfer_model.h \
 			src/transfer.h \
 			src/peer_list.h \
-			src/transfer_list.h \
 			src/window.h
 SOURCES += src/main.cpp
 
