@@ -46,10 +46,12 @@ public:
 		}
 	}
 
-	bool canDropMimeData (const QMimeData * mimedata, Qt::DropAction) const Q_DECL_OVERRIDE {
+	bool canDropMimeData (const QMimeData * mimedata, Qt::DropAction, int) const Q_DECL_OVERRIDE {
 		return mimedata->hasUrls ();
 	}
-	bool dropMimeData (const QMimeData * mimedata, Qt::DropAction) Q_DECL_OVERRIDE {
+	bool dropMimeData (const QMimeData * mimedata, Qt::DropAction action, int elem) Q_DECL_OVERRIDE {
+		if (!canDropMimeData (mimedata, action, elem))
+			return false;
 		for (auto & url : mimedata->urls ())
 			if (url.isValid () && url.isLocalFile ())
 				emit request_upload (peer, url.toLocalFile ());
@@ -75,7 +77,8 @@ public:
 		qCritical () << "PeerListModel: peer not found:" << username;
 	}
 
-	QVariant headerData (int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const {
+	QVariant headerData (int section, Qt::Orientation orientation,
+	                     int role = Qt::DisplayRole) const Q_DECL_OVERRIDE {
 		if (!(role == Qt::DisplayRole && orientation == Qt::Horizontal))
 			return {};
 		switch (PeerField (section)) {
@@ -90,6 +93,15 @@ public:
 		default:
 			return {};
 		}
+	}
+
+	QStringList mimeTypes (void) const Q_DECL_OVERRIDE {
+		QStringList list{"text/uri-list"};
+		list.append (StructItemModel::mimeTypes ());
+		return list;
+	}
+	Qt::DropActions supportedDropActions (void) const Q_DECL_OVERRIDE {
+		return Qt::CopyAction | StructItemModel::supportedDropActions ();
 	}
 };
 

@@ -17,7 +17,12 @@ class StructItem : public QObject {
 	 * Column index is always contained in [0, size[.
 	 * Default values from QAbstractItemModel are used whenever possible.
 	 *
-	 * compare_data is used by sort to compare StructItems
+	 * compare_data is used by sort to compare StructItems for sort.
+	 *
+	 * Drop setup:
+	 * - set drop flag.
+	 * - canDropMimeData can restrict drop by checking mimetype/action.
+	 * - dropMimeData performs the drop.
 	 */
 public:
 	const int size;
@@ -42,11 +47,13 @@ public:
 	virtual QVariant data (int elem, int role) const = 0;
 
 	// Drag & Drop
-	virtual bool canDropMimeData (const QMimeData * /*mimedata*/, Qt::DropAction /*action*/) const {
-		return false;
+	virtual bool canDropMimeData (const QMimeData * /*mimedata*/, Qt::DropAction /*action*/,
+	                              int /*elem*/) const {
+		return true; // No specific check
 	}
-	virtual bool dropMimeData (const QMimeData * /*mimedata*/, Qt::DropAction /*action*/) {
-		return false;
+	virtual bool dropMimeData (const QMimeData * /*mimedata*/, Qt::DropAction /*action*/,
+	                           int /*elem*/) {
+		return false; // No drop
 	}
 
 	// Sort interface
@@ -215,27 +222,33 @@ public:
 
 	/* Drag & drop interface.
 	 * Supports dropping on an item (forwarded to item).
-	 * TODO drag to reorganize ?
+	 * Does not support the default drag system of models (uses removeRows...).
+	 *
+	 * To support drops:
+	 * - support drops in items.
+	 * - reimplement mimeTypes to indicate supported mime types.
+	 * - reimplement supportedDropActions to indicate supported drop actions.
+	 * Internal Drag: TODO
 	 */
 	bool canDropMimeData (const QMimeData * mimedata, Qt::DropAction action, int row, int column,
 	                      const QModelIndex & parent) const Q_DECL_OVERRIDE {
 		if (row == -1 && column == -1 && has_item (parent)) // Direct drop on item
-		{
-			auto b = get_item (parent)->canDropMimeData (mimedata, action);
-			// qDebug () << "from_struct_item" << b << mimedata << action << row << column << parent;
-			return b;
-		}
-		auto b = QAbstractItemModel::canDropMimeData (mimedata, action, row, column, parent);
-		// qDebug () << "from_default" << b << mimedata << action << row << column << parent;
-		return b;
+			return get_item (parent)->canDropMimeData (mimedata, action, parent.column ());
+		return false;
 	}
 	bool dropMimeData (const QMimeData * mimedata, Qt::DropAction action, int row, int column,
 	                   const QModelIndex & parent) Q_DECL_OVERRIDE {
 		if (action == Qt::IgnoreAction)
 			return true;                                      // ignore
 		if (row == -1 && column == -1 && has_item (parent)) // Direct drop on item
-			return get_item (parent)->dropMimeData (mimedata, action);
-		return QAbstractItemModel::dropMimeData (mimedata, action, row, column, parent);
+			return get_item (parent)->dropMimeData (mimedata, action, parent.column ());
+		return false;
+	}
+	QStringList mimeTypes (void) const Q_DECL_OVERRIDE {
+		return {}; // None supported
+	}
+	Qt::DropActions supportedDropActions (void) const Q_DECL_OVERRIDE {
+		return Qt::IgnoreAction; // None supported
 	}
 
 	/* Sort interface.
