@@ -57,7 +57,7 @@ class DownloadPath : public Element<QString> {
 private:
 	const char * key (void) const { return "download/path"; }
 	QString default_value (void) const {
-		auto path = QStandardPaths::displayName (QStandardPaths::DownloadLocation);
+		auto path = QStandardPaths::writableLocation (QStandardPaths::DownloadLocation);
 		if (!path.isEmpty ()) {
 			return path;
 		} else {

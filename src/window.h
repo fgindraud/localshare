@@ -5,8 +5,9 @@
 #include "discovery.h"
 #include "settings.h"
 #include "style.h"
-#include "transfer_model.h"
 #include "transfer.h"
+#include "transfer_upload.h"
+#include "transfer_download.h"
 #include "peer_list.h"
 
 #include <QItemSelectionModel>
@@ -14,6 +15,7 @@
 #include <QSystemTrayIcon>
 #include <QTreeView>
 #include <QSplitter>
+#include <QLabel>
 #include <QAction>
 #include <QMenu>
 #include <QStatusBar>
@@ -31,17 +33,20 @@ class Window : public QMainWindow {
 	 * visibility. Application can be closed by tray menu -> quit.
 	 */
 private:
+	Transfer::Server * server{nullptr};
+	QString our_username;
+
 	QSystemTrayIcon * tray{nullptr};
+	QLabel * status_message{nullptr};
 
 	QAbstractItemView * peer_list_view{nullptr};
 	PeerListModel * peer_list_model{nullptr};
-	Transfer::ListModel * transfer_list_model{nullptr};
+	Transfer::Model * transfer_list_model{nullptr};
 
 public:
 	Window (const QString & blah, QWidget * parent = nullptr) : QMainWindow (parent) {
 		// Start Server
-		auto server = new Transfer::Server (this);
-		qDebug () << "server" << server->port ();
+		server = new Transfer::Server (this);
 		connect (server, &Transfer::Server::new_connection, this, &Window::incoming_connection);
 
 		// Discovery setup
@@ -81,7 +86,7 @@ public:
 			view->setSelectionMode (QAbstractItemView::ExtendedSelection);
 			view->setSortingEnabled (true);
 			view->setStatusTip (
-			    tr ("List of discovered peers (select at least one to enable File/Send...)"));
+			    tr ("List of discovered peers (select at least one to enable Application/Send...)"));
 			peer_list_view = view;
 
 			auto model = new PeerListModel (view);
@@ -102,8 +107,9 @@ public:
 			view->setSelectionBehavior (QAbstractItemView::SelectRows);
 			view->setSelectionMode (QAbstractItemView::NoSelection);
 			view->setSortingEnabled (true);
+			view->viewport ()->setMouseTracking (true); // To enable StatusTipRole elements to be used
 
-			auto model = new Transfer::ListModel (view);
+			auto model = new Transfer::Model (view);
 			view->setModel (model);
 			transfer_list_model = model;
 		}
@@ -129,7 +135,7 @@ public:
 
 		// File menu
 		{
-			auto file = menuBar ()->addMenu (tr ("&File"));
+			auto file = menuBar ()->addMenu (tr ("&Application"));
 			file->addAction (action_send);
 			file->addSeparator ();
 			file->addAction (action_quit);
@@ -147,7 +153,18 @@ public:
 			connect (use_tray, &QAction::triggered,
 			         [=](bool checked) { Settings::UseTray ().set (checked); });
 
+			auto download_path = new QAction (tr ("Set default download &path..."), pref);
+			connect (download_path, &QAction::triggered, [=](void) {
+				Settings::DownloadPath path;
+				auto new_path =
+				    QFileDialog::getExistingDirectory (this, tr ("Set default download path"), path.get ());
+				if (!new_path.isEmpty ())
+					path.set (new_path);
+			});
+
 			pref->addAction (use_tray);
+			pref->addSeparator ();
+			pref->addAction (download_path);
 		}
 
 		// Help menu
@@ -173,13 +190,16 @@ public:
 		}
 
 		// Status bar
-		statusBar ()->showMessage (tr ("Starting up..."));
+		status_message = new QLabel (tr ("Localshare starting up..."));
+		statusBar ()->addWidget (status_message);
 
 		show (); // Show everything
 
 		// FIXME remove (test)
 		peer_added (Peer{"NSA", "nsa.gov", QHostAddress ("192.44.29.1"), 42});
 		peer_added (Peer{"ANSSI", "anssi.fr", QHostAddress ("8.8.8.8"), 1000});
+		request_upload (Peer{"Jean Jacques", "localhost", QHostAddress::LocalHost, server->port ()},
+		                "/home/fgindraud/todo");
 	}
 
 protected:
@@ -196,12 +216,16 @@ protected:
 
 private slots:
 	void service_registered (QString username) {
+		our_username = username;
+
 		// Complete the window when final username has been received from service registration
-		setWindowTitle (QString ("%1 - %2").arg (Const::app_name).arg (username));
-		statusBar ()->showMessage (tr ("Service registered as %1").arg (username));
+		setWindowTitle (QString ("%1 - %2").arg (Const::app_name).arg (our_username));
+		status_message->setText (tr ("Localshare running on port %1 with username %2")
+		                             .arg (server->port ())
+		                             .arg (our_username));
 
 		// Start browsing
-		auto browser = new Discovery::Browser (username, Const::service_name, peer_list_model);
+		auto browser = new Discovery::Browser (our_username, Const::service_name, peer_list_model);
 		connect (browser, &Discovery::Browser::added, this, &Window::peer_added);
 		connect (browser, &Discovery::Browser::removed, this, &Window::peer_removed);
 	}
@@ -241,7 +265,7 @@ private slots:
 	void peer_removed (const QString & username) { peer_list_model->delete_peer (username); }
 
 	void request_upload (const Peer & peer, const QString & filepath) {
-		auto upload = new Transfer::Upload (peer, filepath, transfer_list_model);
+		auto upload = new Transfer::Upload (peer, filepath, our_username, transfer_list_model);
 		transfer_list_model->append (upload);
 	}
 
