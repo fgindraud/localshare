@@ -2,9 +2,12 @@
 #define TRANSFER_H
 
 #include <QDataStream>
+#include <QApplication>
 #include <QTcpServer>
 #include <QTcpSocket>
 #include <QAbstractSocket>
+#include <QStyledItemDelegate>
+#include <QStyleOptionProgressBar>
 #include <limits>
 #include <type_traits>
 
@@ -29,7 +32,6 @@ public:
 		server.listen (); // any port
 		connect (&server, &QTcpServer::newConnection, [this] {
 			auto socket = server.nextPendingConnection ();
-			qDebug () << "server:new" << socket->peerAddress () << socket->peerPort ();
 			emit new_connection (socket);
 		});
 	}
@@ -60,14 +62,14 @@ namespace Message {
 		// Request for sending a file by the Uploader
 		static constexpr Code code (void) { return 0x42; }
 		QString username; // Sender
-		QString basename; // Name of file
+		QString filename; // Name of file
 		qint64 size;
 	};
 	inline QDataStream & operator<<(QDataStream & stream, const Offer & req) {
-		return stream << req.username << req.basename << req.size;
+		return stream << req.username << req.filename << req.size;
 	}
 	inline QDataStream & operator>>(QDataStream & stream, Offer & req) {
-		return stream >> req.username >> req.basename >> req.size;
+		return stream >> req.username >> req.filename >> req.size;
 	}
 
 	struct Accept {
@@ -146,7 +148,7 @@ class Model : public StructItemModel {
 	Q_OBJECT
 
 public:
-	enum Field { Filename, Peer, Size, Status, Num }; // Items
+	enum Field { Filename, Peer, Size, Progress, Status, Num }; // Items
 
 	Model (QObject * parent = nullptr) : StructItemModel (Num, parent) {}
 
@@ -155,15 +157,48 @@ public:
 			return {};
 		switch (section) {
 		case Filename:
-			return tr ("Filename");
+			return tr ("File");
 		case Peer:
 			return tr ("Peer");
 		case Size:
 			return tr ("File size");
+		case Progress:
+			return tr ("Transferred");
 		case Status:
 			return tr ("Status");
 		default:
 			return {};
+		}
+	}
+};
+
+class Delegate : public QStyledItemDelegate {
+public:
+	Delegate (QObject * parent = nullptr) : QStyledItemDelegate (parent) {}
+
+	void paint (QPainter * painter, const QStyleOptionViewItem & option,
+	            const QModelIndex & index) const Q_DECL_OVERRIDE {
+		Q_ASSERT (index.isValid ());
+		switch (index.column ()) {
+		case Model::Progress: {
+			QStyleOptionProgressBar opt;
+			opt.rect = option.rect;
+			opt.state = option.state;
+			opt.palette = option.palette;
+			opt.minimum = 0;
+			opt.maximum = 100;
+			opt.progress = -1;
+			auto value = index.data (Qt::DisplayRole);
+			if (value.canConvert<int> ()) {
+				auto v = value.toInt ();
+				opt.progress = v;
+				opt.text = QString ("%1%").arg (v);
+				opt.textVisible = true;
+			}
+			QApplication::style ()->drawControl (QStyle::CE_ProgressBar, &opt, painter);
+		} break;
+		default:
+			QStyledItemDelegate::paint (painter, option, index);
 		}
 	}
 };

@@ -107,7 +107,8 @@ public:
 			view->setSelectionBehavior (QAbstractItemView::SelectRows);
 			view->setSelectionMode (QAbstractItemView::NoSelection);
 			view->setSortingEnabled (true);
-			view->viewport ()->setMouseTracking (true); // To enable StatusTipRole elements to be used
+			view->setMouseTracking (true); // To enable StatusTipRole elements to be used
+			view->setItemDelegate (new Transfer::Delegate (view));
 
 			auto model = new Transfer::Model (view);
 			view->setModel (model);
@@ -154,6 +155,7 @@ public:
 			         [=](bool checked) { Settings::UseTray ().set (checked); });
 
 			auto download_path = new QAction (tr ("Set default download &path..."), pref);
+			download_path->setStatusTip (tr ("Sets the path used by default to store downloaded files."));
 			connect (download_path, &QAction::triggered, [=](void) {
 				Settings::DownloadPath path;
 				auto new_path =
@@ -162,9 +164,17 @@ public:
 					path.set (new_path);
 			});
 
+			auto download_auto = new QAction (tr ("Always &accept downloads"), pref);
+			download_auto->setCheckable (true);
+			download_auto->setChecked (Settings::DownloadAuto ().get ());
+			download_auto->setStatusTip (tr ("Enable automatic accept of all incoming download offers."));
+			connect (download_auto, &QAction::triggered,
+			         [=](bool checked) { Settings::DownloadAuto ().set (checked); });
+
 			pref->addAction (use_tray);
 			pref->addSeparator ();
 			pref->addAction (download_path);
+			pref->addAction (download_auto);
 		}
 
 		// Help menu

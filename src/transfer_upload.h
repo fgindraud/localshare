@@ -4,6 +4,7 @@
 #include <QTcpSocket>
 #include <QFile>
 #include <QFileInfo>
+#include <QDataStream>
 
 #include "style.h"
 #include "transfer.h"
@@ -114,6 +115,16 @@ private:
 				return tr ("%1B").arg (file.size ());
 			}
 		} break;
+		case Model::Progress: {
+			// Transfer progress in %, and in bytes for tooltip
+			switch (role) {
+			case Qt::DisplayRole:
+				return 42; // TODO
+			case Qt::StatusTipRole:
+			case Qt::ToolTipRole:
+				return "42B/100B";
+			}
+		} break;
 		case Model::Status: {
 			// Status message
 			if (role == Qt::DisplayRole) {
@@ -135,6 +146,16 @@ private:
 		return {};
 	}
 
+	QVariant compare_data (int elem) const Q_DECL_OVERRIDE {
+		switch (elem) {
+		case Model::Size:
+			return qint64 (file.size ());
+		case Model::Status:
+			return int(status);
+		};
+		return StructItem::compare_data (elem);
+	}
+
 	/* Protocol implementation
 	 */
 private slots:
@@ -145,6 +166,7 @@ private slots:
 	void on_connected (void) {
 		Q_ASSERT (status == Connecting);
 		set_status (WaitingHandshake);
+		socket_stream.setDevice (&socket);
 		socket_stream << Const::protocol_magic << Const::protocol_version;
 	}
 
