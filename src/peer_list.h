@@ -7,39 +7,38 @@
 #include <QMimeData>
 #include <QUrl>
 
-enum class PeerField { UserName, HostName, Address, Port, Num };
-
 class PeerItem : public StructItem {
 	Q_OBJECT
 
-private:
-	Peer peer;
+public:
+	// View fields
+	enum Field { UsernameField, HostnameField, AddressField, PortField, NbFields };
+
+	const Peer peer;
 
 signals:
 	void request_upload (Peer peer, QString filepath);
 
 public:
 	PeerItem (const Peer & peer, QObject * parent = nullptr)
-	    : StructItem (int(PeerField::Num), parent), peer (peer) {}
-
-	const Peer & get_peer (void) const { return peer; }
+	    : StructItem (NbFields, parent), peer (peer) {}
 
 	// Model
-	Qt::ItemFlags flags (int elem) const Q_DECL_OVERRIDE {
-		return StructItem::flags (elem) | Qt::ItemIsDropEnabled;
+	Qt::ItemFlags flags (int field) const Q_DECL_OVERRIDE {
+		return StructItem::flags (field) | Qt::ItemIsDropEnabled;
 	}
 
-	QVariant data (int elem, int role) const Q_DECL_OVERRIDE {
+	QVariant data (int field, int role) const Q_DECL_OVERRIDE {
 		if (role != Qt::DisplayRole)
 			return {};
-		switch (PeerField (elem)) {
-		case PeerField::UserName:
+		switch (field) {
+		case UsernameField:
 			return peer.username;
-		case PeerField::HostName:
+		case HostnameField:
 			return peer.hostname;
-		case PeerField::Address:
+		case AddressField:
 			return peer.address.toString ();
-		case PeerField::Port:
+		case PortField:
 			return peer.port;
 		default:
 			return {};
@@ -49,8 +48,8 @@ public:
 	bool canDropMimeData (const QMimeData * mimedata, Qt::DropAction, int) const Q_DECL_OVERRIDE {
 		return mimedata->hasUrls ();
 	}
-	bool dropMimeData (const QMimeData * mimedata, Qt::DropAction action, int elem) Q_DECL_OVERRIDE {
-		if (!canDropMimeData (mimedata, action, elem))
+	bool dropMimeData (const QMimeData * mimedata, Qt::DropAction action, int field) Q_DECL_OVERRIDE {
+		if (!canDropMimeData (mimedata, action, field))
 			return false;
 		for (auto & url : mimedata->urls ())
 			if (url.isValid () && url.isLocalFile ())
@@ -63,13 +62,13 @@ class PeerListModel : public StructItemModel {
 	Q_OBJECT
 
 public:
-	PeerListModel (QObject * parent = nullptr) : StructItemModel (int(PeerField::Num), parent) {}
+	PeerListModel (QObject * parent = nullptr) : StructItemModel (PeerItem::NbFields, parent) {}
 
 	void delete_peer (const QString & username) {
 		for (auto i = 0; i < size (); ++i) {
 			auto item = at_t<PeerItem *> (i);
 			Q_ASSERT (item != nullptr);
-			if (item->get_peer ().username == username) {
+			if (item->peer.username == username) {
 				item->deleteLater ();
 				return;
 			}
@@ -81,14 +80,14 @@ public:
 	                     int role = Qt::DisplayRole) const Q_DECL_OVERRIDE {
 		if (!(role == Qt::DisplayRole && orientation == Qt::Horizontal))
 			return {};
-		switch (PeerField (section)) {
-		case PeerField::UserName:
+		switch (section) {
+		case PeerItem::UsernameField:
 			return tr ("Username");
-		case PeerField::HostName:
+		case PeerItem::HostnameField:
 			return tr ("Hostname");
-		case PeerField::Address:
+		case PeerItem::AddressField:
 			return tr ("Ip address");
-		case PeerField::Port:
+		case PeerItem::PortField:
 			return tr ("Tcp port");
 		default:
 			return {};

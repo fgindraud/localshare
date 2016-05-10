@@ -3,7 +3,6 @@
 
 #include <QDataStream>
 #include <QHostAddress>
-#include <QDebug>
 
 namespace Const {
 // Application name for settings, etc...
@@ -27,12 +26,5 @@ struct Peer {
 	QHostAddress address;
 	quint16 port; // Stored in host byte order
 };
-
-inline QDebug operator<<(QDebug debug, const Peer & peer) {
-	QDebugStateSaver saver (debug);
-	debug.nospace () << "Peer(" << peer.username << ", " << peer.hostname << ", " << peer.address
-	                 << ", " << peer.port << ")";
-	return debug;
-}
 
 #endif

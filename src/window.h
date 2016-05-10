@@ -8,6 +8,7 @@
 #include "transfer.h"
 #include "transfer_upload.h"
 #include "transfer_download.h"
+#include "transfer_delegate.h"
 #include "peer_list.h"
 
 #include <QItemSelectionModel>
@@ -105,14 +106,19 @@ public:
 			view->setAlternatingRowColors (true);
 			view->setRootIsDecorated (false);
 			view->setSelectionBehavior (QAbstractItemView::SelectRows);
-			view->setSelectionMode (QAbstractItemView::NoSelection);
+			view->setSelectionMode (QAbstractItemView::NoSelection); // delegate stuff looks bad
 			view->setSortingEnabled (true);
 			view->setMouseTracking (true); // To enable StatusTipRole elements to be used
-			view->setItemDelegate (new Transfer::Delegate (view));
+
+			auto delegate = new Transfer::Delegate (view);
+			view->setItemDelegate (delegate);
 
 			auto model = new Transfer::Model (view);
 			view->setModel (model);
 			transfer_list_model = model;
+
+			connect (delegate, &Transfer::Delegate::button_clicked, model,
+			         &Transfer::Model::button_clicked);
 		}
 
 		// System tray
@@ -259,9 +265,7 @@ private slots:
 		for (auto & index : selection) {
 			if (index.column () == 0 && peer_list_model->has_item (index)) {
 				// TreeView selected row generates 4 selection items ; only keep 1 per row
-				auto item = peer_list_model->get_item_t<PeerItem *> (index);
-				Q_ASSERT (item != nullptr);
-				request_upload (item->get_peer (), filepath);
+				request_upload (peer_list_model->get_item_t<PeerItem *> (index)->peer, filepath);
 			}
 		}
 	}

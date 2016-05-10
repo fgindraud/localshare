@@ -5,8 +5,6 @@
 #include <QPersistentModelIndex>
 #include <algorithm>
 
-#include <QDebug>
-
 class StructItem : public QObject {
 	Q_OBJECT
 
@@ -41,24 +39,24 @@ public:
 	~StructItem () { emit being_destroyed (this); }
 
 	// Read only interface
-	virtual Qt::ItemFlags flags (int /*elem*/) const {
+	virtual Qt::ItemFlags flags (int /*field*/) const {
 		return Qt::ItemIsEnabled | Qt::ItemIsSelectable;
 	}
-	virtual QVariant data (int elem, int role) const = 0;
+	virtual QVariant data (int field, int role) const = 0;
 
 	// Drag & Drop
 	virtual bool canDropMimeData (const QMimeData * /*mimedata*/, Qt::DropAction /*action*/,
-	                              int /*elem*/) const {
+	                              int /*field*/) const {
 		return true; // No specific check
 	}
 	virtual bool dropMimeData (const QMimeData * /*mimedata*/, Qt::DropAction /*action*/,
-	                           int /*elem*/) {
+	                           int /*field*/) {
 		return false; // No drop
 	}
 
 	// Sort interface
-	virtual QVariant compare_data (int elem) const {
-		return data (elem, Qt::DisplayRole); // Default to text data
+	virtual QVariant compare_data (int field) const {
+		return data (field, Qt::DisplayRole); // Default to text data
 	}
 };
 
@@ -100,7 +98,11 @@ public:
 		Q_ASSERT (0 <= i && i < size ());
 		return item_list.at (i);
 	}
-	template <typename T> T at_t (int i) const { return qobject_cast<T> (at (i)); }
+	template <typename T> T at_t (int i) const {
+		auto p = qobject_cast<T> (at (i));
+		Q_ASSERT (p != nullptr);
+		return p;
+	}
 
 	void insert (int i, StructItem * item) {
 		Q_ASSERT (item != nullptr);
@@ -137,7 +139,9 @@ public:
 	}
 	StructItem * get_item (const QModelIndex & index) const { return at (index.row ()); }
 	template <typename T> T get_item_t (const QModelIndex & index) const {
-		return qobject_cast<T> (get_item (index));
+		auto p = qobject_cast<T> (get_item (index));
+		Q_ASSERT (p != nullptr);
+		return p;
 	}
 
 private slots:

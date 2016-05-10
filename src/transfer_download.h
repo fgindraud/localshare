@@ -1,79 +1,84 @@
-#ifndef TRANSFER_UPLOAD_H
-#define TRANSFER_UPLOAD_H
+#ifndef TRANSFER_DOWNLOAD_H
+#define TRANSFER_DOWNLOAD_H
 
-#include <QTcpSocket>
-#include <QFile>
-#include <QFileInfo>
+#include <QAbstractSocket>
 #include <QDataStream>
 
 #include "style.h"
+#include "settings.h"
 #include "transfer.h"
 #include "struct_item_model.h"
 
 namespace Transfer {
 
-class Upload : public Item {
+class Download : public Item {
 	Q_OBJECT
 
-	/* Upload object.
+	/* Download object.
 	 *
-	 * Usually owned by the model.
+	 * Owned by their sockets, which are owned by the server.
 	 */
 
 private:
 	enum Status {
 		Error,
 
-		Connecting,
 		WaitingHandshake,
-		WaitingRequestAnswer,
+		WaitingOffer,
+		WaitingUserChoice,
 		Transfering
 	};
 
 	Status status{Error};
 	QString error{"init"};
 
-	const Peer peer;
-	const QString & our_username;
-	QTcpSocket socket;
+	QAbstractSocket * socket;
 	QDataStream socket_stream;
 	qint64 next_message_size{-1};
 
 	QString filename;
-	QFile file;
+	qint64 size{-1};
+	QString username;
 
 public:
-	Upload (const Peer & peer, const QString & filepath, const QString & our_username,
-	        QObject * parent = nullptr)
-	    : Item (parent),
-	      peer (peer),
-	      our_username (our_username),
-	      filename (QFileInfo (filepath).fileName ()),
-	      file (filepath) {
+	Download (QAbstractSocket * connection)
+	    : Item (connection), socket (connection), socket_stream (socket) {
 		socket_stream.setVersion (Const::serializer_version);
 
-		// Socket
-		connect (&socket,
-		         static_cast<void (QTcpSocket::*) (QTcpSocket::SocketError)> (&QTcpSocket::error), this,
-		         &Upload::on_socket_error);
-		connect (&socket, &QTcpSocket::connected, this, &Upload::on_connected);
-		connect (&socket, &QTcpSocket::readyRead, this, &Upload::data_available);
+		connect (socket, static_cast<void (QAbstractSocket::*) (QAbstractSocket::SocketError)> (
+		                     &QAbstractSocket::error),
+		         this, &Download::on_socket_error);
+		connect (socket, &QAbstractSocket::readyRead, this, &Download::data_available);
 
-		initiate_connection ();
+		initiate_protocol ();
 	}
 
-	/* Model funcs
-	 */
 private:
+	// Model stuff
 	void set_status (Status new_status) {
 		status = new_status;
 		emit data_changed (StatusField);
 	}
 
+	void set_filename (const QString & new_filename) {
+		filename = new_filename;
+		emit data_changed (FilenameField);
+	}
+
+	void set_username (const QString & new_username) {
+		username = new_username;
+		emit data_changed (PeerField);
+	}
+
+	void set_size (qint64 new_size) {
+		size = new_size;
+		emit data_changed (SizeField);
+	}
+
 	void failure (const QString & reason) {
 		error = reason;
 		set_status (Error);
-		socket.abort ();
+		socket->abort ();
 		socket_stream.resetStatus ();
 		// TODO emit failed (reason);
 	}
@@ -81,65 +86,74 @@ private:
 	QVariant data (int field, int role) const Q_DECL_OVERRIDE {
 		switch (field) {
 		case FilenameField: {
-			// Filename indicates direction of transfer too
+			// Display filename and transfer direction
 			switch (role) {
 			case Qt::DisplayRole:
 				return filename;
-			case Qt::StatusTipRole:
-			case Qt::ToolTipRole:
-				return tr ("Uploading %1").arg (file.fileName ());
+			// TODO download path + editable ?
 			case Qt::DecorationRole:
-				return Icon::upload ();
+				return Icon::download ();
 			}
 		} break;
 		case PeerField: {
-			// Username, detailed to hostname/ip/port
+			// Username (ip if not available), detailed to ip/port
 			switch (role) {
 			case Qt::DisplayRole:
-				return peer.username;
+				if (username.isEmpty ())
+					return socket->peerAddress ().toString ();
+				else
+					return username;
+				break;
 			case Qt::StatusTipRole:
 			case Qt::ToolTipRole:
-				return tr ("%1 (%2) on port %3")
-				    .arg (peer.hostname)
-				    .arg (peer.address.toString ())
-				    .arg (peer.port);
+				return tr ("%1 on port %2")
+				    .arg (socket->peerAddress ().toString ())
+				    .arg (socket->peerPort ());
 			}
 		} break;
 		case SizeField: {
 			// File size
-			switch (role) {
-			case Qt::DisplayRole:
-				return size_to_string (file.size ());
-			case Qt::StatusTipRole:
-			case Qt::ToolTipRole:
-				return tr ("%1B").arg (file.size ());
+			if (size >= 0) {
+				switch (role) {
+				case Qt::DisplayRole:
+					return size_to_string (size);
+				case Qt::StatusTipRole:
+				case Qt::ToolTipRole:
+					return tr ("%1B").arg (size);
+				}
 			}
 		} break;
 		case ProgressField: {
 			// Transfer progress in %, and in bytes for tooltip
 			switch (role) {
 			case Qt::DisplayRole:
-				return 42; // TODO
+				return 1; // TODO
 			case Qt::StatusTipRole:
 			case Qt::ToolTipRole:
-				return "42B/100B";
+				return "1B/100B";
 			}
 		} break;
 		case StatusField: {
 			// Status message
-			if (role == Qt::DisplayRole) {
+			switch (role) {
+			case Qt::DisplayRole: {
 				switch (status) {
 				case Error:
 					return error;
-				case Connecting:
-					return tr ("Connecting");
 				case WaitingHandshake:
 					return tr ("Protocol checks");
-				case WaitingRequestAnswer:
-					return tr ("Waiting peer answer");
+				case WaitingOffer:
+					return tr ("Waiting for file offer");
+				case WaitingUserChoice:
+					return {"choice ?"}; // TODO
 				case Transfering:
 					return tr ("Transfering");
 				}
+			} break;
+			case Item::ButtonRole: {
+				if (status == WaitingUserChoice)
+					return QVariant::fromValue<Item::Buttons> (Item::AcceptButton | Item::CancelButton);
+			} break;
 			}
 		} break;
 		}
@@ -149,7 +163,7 @@ private:
 	QVariant compare_data (int field) const Q_DECL_OVERRIDE {
 		switch (field) {
 		case SizeField:
-			return qint64 (file.size ());
+			return qint64 (size);
 		case StatusField:
 			return int(status);
 		};
@@ -158,38 +172,36 @@ private:
 
 	void button_clicked (int field, Button btn) Q_DECL_OVERRIDE {
 		// TODO
-		qDebug () << "upload: button_clicked" << field << btn;
+		qDebug () << "download: button_clicked" << field << btn;
 	}
 
 	/* Protocol implementation
 	 */
 private slots:
 	void on_socket_error (QTcpSocket::SocketError) {
-		failure (tr ("Network error: ") + socket.errorString ());
-	}
-
-	void on_connected (void) {
-		Q_ASSERT (status == Connecting);
-		set_status (WaitingHandshake);
-		socket_stream.setDevice (&socket);
-		socket_stream << Const::protocol_magic << Const::protocol_version;
+		failure (tr ("Network error: ") + socket->errorString ());
 	}
 
 	void data_available (void) {
 		switch (status) {
 		case Error:
-		case Connecting:
 			break;
 		case WaitingHandshake: {
 			if (!da_waiting_handshake ())
 				break;
-			set_status (WaitingRequestAnswer);
+			set_status (WaitingOffer);
 		}
-		case WaitingRequestAnswer: {
-			if (!da_waiting_request_answer ())
+		case WaitingOffer: {
+			if (!da_waiting_offer ())
 				break;
-			set_status (Transfering);
+			if (Settings::DownloadAuto ().get ()) {
+				set_status (Transfering);
+			} else {
+				set_status (WaitingUserChoice);
+			}
 		}
+		case WaitingUserChoice:
+			break;
 		case Transfering: {
 			if (!da_transfering ())
 				break;
@@ -198,9 +210,9 @@ private slots:
 	}
 
 private:
-	void initiate_connection (void) {
-		set_status (Connecting);
-		socket.connectToHost (peer.address, peer.port);
+	void initiate_protocol (void) {
+		set_status (WaitingHandshake);
+		socket_stream << Const::protocol_magic << Const::protocol_version;
 	}
 
 	template <typename Msg> void send_message (const Msg & msg) {
@@ -221,7 +233,7 @@ private:
 
 	bool da_waiting_handshake (void) {
 		// Received handshake
-		if (socket.bytesAvailable () < sizes.handshake)
+		if (socket->bytesAvailable () < sizes.handshake)
 			return false;
 		std::remove_const<decltype (Const::protocol_magic)>::type magic;
 		std::remove_const<decltype (Const::protocol_version)>::type version;
@@ -238,15 +250,13 @@ private:
 			             .arg (Const::protocol_version));
 			return false;
 		}
-		// Send upload request
-		send_message (Message::Offer{our_username, filename, file.size ()});
 		return true;
 	}
 
-	bool da_waiting_request_answer (void) {
+	bool da_waiting_offer (void) {
 		// Read message size
 		if (next_message_size == -1) {
-			if (socket.bytesAvailable () < sizes.message_size)
+			if (socket->bytesAvailable () < sizes.message_size)
 				return false;
 			Sizes::MessageSize s;
 			socket_stream >> s;
@@ -255,25 +265,24 @@ private:
 			next_message_size = static_cast<qint64> (s);
 		}
 		// Read message code then message itself (all interruption are errors)
-		if (socket.bytesAvailable () < next_message_size)
+		if (socket->bytesAvailable () < next_message_size)
 			return false;
 		next_message_size = -1;
 		Message::Code code;
 		socket_stream >> code;
 		if (!check_datastream ())
 			return false;
-		switch (code) {
-		case Message::Accept::code ():
-			// No data to read
-			return true;
-		case Message::Reject::code ():
-			// No data to read
-			failure (tr ("Transfer rejected by peer"));
-			return false;
-		default:
+		if (code != Message::Offer::code ()) {
 			failure (tr ("Protocol error"));
 			return false;
 		}
+		Message::Offer offer;
+		socket_stream >> offer;
+		if (!check_datastream ())
+			return false;
+		set_username (offer.username);
+		set_filename (offer.filename);
+		set_size (offer.size);
 		return true;
 	}
 

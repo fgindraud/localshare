@@ -22,7 +22,6 @@ inline QIcon quit (void) {
 	return from_style (QStyle::SP_DialogCloseButton);
 }
 
-
 inline QIcon download (void) {
 	return from_style (QStyle::SP_ArrowDown);
 }
@@ -33,7 +32,7 @@ inline QIcon upload (void) {
 inline QIcon accept (void) {
 	return from_style (QStyle::SP_DialogOkButton);
 }
-inline QIcon reject (void) {
+inline QIcon cancel (void) {
 	return from_style (QStyle::SP_DialogCancelButton);
 }
 }

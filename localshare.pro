@@ -11,6 +11,7 @@ HEADERS += src/localshare.h \
 			src/transfer.h \
 			src/transfer_upload.h \
 			src/transfer_download.h \
+			src/transfer_delegate.h \
 			src/peer_list.h \
 			src/window.h
 SOURCES += src/main.cpp

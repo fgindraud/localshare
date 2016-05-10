@@ -2,24 +2,23 @@
 #define TRANSFER_H
 
 #include <QDataStream>
-#include <QApplication>
 #include <QTcpServer>
 #include <QTcpSocket>
 #include <QAbstractSocket>
-#include <QStyledItemDelegate>
-#include <QStyleOptionProgressBar>
 #include <limits>
 #include <type_traits>
 
 #include "localshare.h"
 #include "struct_item_model.h"
 
+// This file contains a lot of utilities for transfers
 namespace Transfer {
 
 class Server : public QObject {
 	Q_OBJECT
 
 	/* Server object.
+	 * Nothing fancy, just a small wrapper around a QTcpServer
 	 */
 private:
 	QTcpServer server;
@@ -39,7 +38,12 @@ public:
 };
 
 namespace Message {
-	/* Protocol:
+	/* Small classes that define protocol messages.
+	 * Each message class is associated with a unique code.
+	 * This code is given by static code() (FIXME move to constexpr value when clang stops failing).
+	 * Each class is QDataStream capable.
+	 *
+	 * Protocol:
 	 *
 	 * Uploader         Downloader
 	 * ---[open connection]--->
@@ -141,69 +145,76 @@ public:
 	    : message_size (get_serialized_size (MessageSize ())),
 	      handshake (get_serialized_size (Const::protocol_magic, Const::protocol_version)) {}
 };
-
 extern Sizes sizes; // Global precomputed size info (defined in main.cpp)
+
+class Item : public StructItem {
+	Q_OBJECT
+
+	/* Base transfer item class.
+	 * Subclassed by upload or download.
+	 */
+public:
+	// Fields that are supported
+	enum Field { FilenameField, PeerField, SizeField, ProgressField, StatusField, NbFields };
+
+	/* Status can have buttons to interact with user (accept/abort transfer).
+	 * The View/Model system doesn't support buttons very easily.
+	 * The chosen approach is to have a new Role to tell which buttons are enabled.
+	 * This Role stores an OR of flags, and an invalid QVariant is treated as a 0 flag.
+	 * The buttons are manually painted on the view by a custom delegate.
+	 * The delegate also catches click events.
+	 * TODO click event ?
+	 */
+	enum Role { ButtonRole = Qt::UserRole };
+	enum Button { NoButton = 0x0, AcceptButton = 0x1, CancelButton = 0x2 };
+	Q_DECLARE_FLAGS (Buttons, Button);
+	Q_FLAG (Buttons);
+
+public:
+	Item (QObject * parent = nullptr) : StructItem (NbFields, parent) {}
+
+	virtual void button_clicked (int field, Button btn) = 0;
+};
+Q_DECLARE_OPERATORS_FOR_FLAGS (Item::Buttons);
 
 class Model : public StructItemModel {
 	Q_OBJECT
 
+	/* Transfer list model.
+	 * Adds headers and dispatch button_clicked.
+	 */
 public:
-	enum Field { Filename, Peer, Size, Progress, Status, Num }; // Items
-
-	Model (QObject * parent = nullptr) : StructItemModel (Num, parent) {}
+	Model (QObject * parent = nullptr) : StructItemModel (Item::NbFields, parent) {}
 
 	QVariant headerData (int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const {
 		if (!(role == Qt::DisplayRole && orientation == Qt::Horizontal))
 			return {};
 		switch (section) {
-		case Filename:
+		case Item::FilenameField:
 			return tr ("File");
-		case Peer:
+		case Item::PeerField:
 			return tr ("Peer");
-		case Size:
+		case Item::SizeField:
 			return tr ("File size");
-		case Progress:
+		case Item::ProgressField:
 			return tr ("Transferred");
-		case Status:
+		case Item::StatusField:
 			return tr ("Status");
 		default:
 			return {};
 		}
 	}
-};
 
-class Delegate : public QStyledItemDelegate {
-public:
-	Delegate (QObject * parent = nullptr) : QStyledItemDelegate (parent) {}
-
-	void paint (QPainter * painter, const QStyleOptionViewItem & option,
-	            const QModelIndex & index) const Q_DECL_OVERRIDE {
-		Q_ASSERT (index.isValid ());
-		switch (index.column ()) {
-		case Model::Progress: {
-			QStyleOptionProgressBar opt;
-			opt.rect = option.rect;
-			opt.state = option.state;
-			opt.palette = option.palette;
-			opt.minimum = 0;
-			opt.maximum = 100;
-			opt.progress = -1;
-			auto value = index.data (Qt::DisplayRole);
-			if (value.canConvert<int> ()) {
-				auto v = value.toInt ();
-				opt.progress = v;
-				opt.text = QString ("%1%").arg (v);
-				opt.textVisible = true;
-			}
-			QApplication::style ()->drawControl (QStyle::CE_ProgressBar, &opt, painter);
-		} break;
-		default:
-			QStyledItemDelegate::paint (painter, option, index);
-		}
+public slots:
+	void button_clicked (const QModelIndex & index, Item::Button btn) {
+		if (has_item (index))
+			return get_item_t<Item *> (index)->button_clicked (index.column (), btn);
+		qCritical () << "button_clicked on invalid item" << index << btn;
 	}
 };
 
 inline QString size_to_string (qint64 size) {
+	// Find correct unit to fit size.
 	double num = size;
 	double increment = 1024.0;
 	static QString suffixes[] = {QObject::tr ("B"),
