@@ -93,6 +93,10 @@ private:
 			// TODO download path + editable ?
 			case Qt::DecorationRole:
 				return Icon::download ();
+			case Item::ButtonRole:
+				if (status == WaitingUserChoice)
+					return QVariant::fromValue<Item::Buttons> (Item::ChangeDownloadPathButton);
+				break;
 			}
 		} break;
 		case PeerField: {
@@ -145,7 +149,7 @@ private:
 				case WaitingOffer:
 					return tr ("Waiting for file offer");
 				case WaitingUserChoice:
-					return {"choice ?"}; // TODO
+					return tr ("Download file ?");
 				case Transfering:
 					return tr ("Transfering");
 				}
@@ -173,6 +177,14 @@ private:
 	void button_clicked (int field, Button btn) Q_DECL_OVERRIDE {
 		// TODO
 		qDebug () << "download: button_clicked" << field << btn;
+		switch (status) {
+		case WaitingUserChoice: {
+											if (field == StatusField && Item::AcceptButton == btn)
+												set_status (Transfering);
+		} break;
+		default:
+			qWarning () << "WTF ?";
+		}
 	}
 
 	/* Protocol implementation
@@ -183,6 +195,10 @@ private slots:
 	}
 
 	void data_available (void) {
+		/* Non break switch, as we can move multiple steps if enough data arrived.
+		 * At each step, data is managed by da_* functions, that return true only if we can go to the
+		 * next step.
+		 */
 		switch (status) {
 		case Error:
 			break;
@@ -198,10 +214,16 @@ private slots:
 				set_status (Transfering);
 			} else {
 				set_status (WaitingUserChoice);
+				emit data_changed (FilenameField); // Adding button to change download filepath
 			}
 		}
-		case WaitingUserChoice:
-			break;
+		case WaitingUserChoice: {
+			/* We are not waiting for data in this step, so break.
+			 * But do not break if we just skip this step to Transfering.
+			 */
+			if (status == WaitingUserChoice)
+				break;
+		}
 		case Transfering: {
 			if (!da_transfering ())
 				break;
@@ -232,7 +254,7 @@ private:
 	}
 
 	bool da_waiting_handshake (void) {
-		// Received handshake
+		// Receiving handshake
 		if (socket->bytesAvailable () < sizes.handshake)
 			return false;
 		std::remove_const<decltype (Const::protocol_magic)>::type magic;

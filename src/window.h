@@ -20,6 +20,7 @@
 #include <QAction>
 #include <QMenu>
 #include <QStatusBar>
+#include <QToolBar>
 #include <QCloseEvent>
 #include <QMenuBar>
 #include <QFileDialog>
@@ -132,7 +133,7 @@ public:
 			auto menu = new QMenu (this); // cannot be child of tray (not Widget)
 			tray->setContextMenu (menu);
 
-			auto show_window = new QAction (tr ("Show &Window"), menu);
+			auto show_window = new QAction (Icon::restore (), tr ("Show &Window"), menu);
 			connect (show_window, &QAction::triggered, this, &QWidget::show);
 
 			menu->addAction (show_window);
@@ -205,10 +206,19 @@ public:
 			help->addAction (about);
 		}
 
+		// Toolbar
+		{
+			auto tool_bar = addToolBar (tr ("Application"));
+			tool_bar->setObjectName ("toolbar");
+			tool_bar->addAction (action_send);
+		}
+
 		// Status bar
 		status_message = new QLabel (tr ("Localshare starting up..."));
 		statusBar ()->addWidget (status_message);
 
+		restoreGeometry (Settings::Geometry ().get ());
+		restoreState (Settings::WindowState ().get ());
 		show (); // Show everything
 
 		// FIXME remove (test)
@@ -216,6 +226,11 @@ public:
 		peer_added (Peer{"ANSSI", "anssi.fr", QHostAddress ("8.8.8.8"), 1000});
 		request_upload (Peer{"Jean Jacques", "localhost", QHostAddress::LocalHost, server->port ()},
 		                "/home/fgindraud/todo");
+	}
+
+	~Window () {
+		Settings::Geometry ().set (saveGeometry ());
+		Settings::WindowState ().set (saveState ());
 	}
 
 protected:

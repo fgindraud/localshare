@@ -18,8 +18,11 @@ inline QIcon app (void) {
 inline QIcon send (void) {
 	return from_style (QStyle::SP_FileIcon);
 }
+inline QIcon restore (void) {
+	return QIcon::fromTheme ("view-restore");
+}
 inline QIcon quit (void) {
-	return from_style (QStyle::SP_DialogCloseButton);
+	return QIcon::fromTheme ("application-exit", from_style (QStyle::SP_DialogCloseButton));
 }
 
 inline QIcon download (void) {
@@ -34,6 +37,9 @@ inline QIcon accept (void) {
 }
 inline QIcon cancel (void) {
 	return from_style (QStyle::SP_DialogCancelButton);
+}
+inline QIcon change_download_path (void) {
+	return from_style (QStyle::SP_DirIcon);
 }
 }
 

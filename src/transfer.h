@@ -166,7 +166,7 @@ public:
 	 * TODO click event ?
 	 */
 	enum Role { ButtonRole = Qt::UserRole };
-	enum Button { NoButton = 0x0, AcceptButton = 0x1, CancelButton = 0x2 };
+	enum Button { NoButton = 0x0, AcceptButton = 0x1, CancelButton = 0x2, ChangeDownloadPathButton = 0x4 };
 	Q_DECLARE_FLAGS (Buttons, Button);
 	Q_FLAG (Buttons);
 

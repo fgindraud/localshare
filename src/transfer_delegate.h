@@ -28,14 +28,11 @@ class Delegate : public QStyledItemDelegate {
 	 *
 	 * Buttons are placed on the right of each cell.
 	 * Their order is fixed and determined by the supported_buttons list order.
-	 * When drawn, buttons are square and take the full cell height.
+	 * When drawn, buttons only take their sizeHint, and are vertically centered.
 	 *
 	 * sizeHint: their required size is added to content_sizeHint to the right.
 	 * paint: paint buttons from right to left, shaving space of the item.
 	 * event: "paint" to get positions, then check rects.
-	 *
-	 * FIXME Handle cases where shaved content_rect becomes null ?
-	 * FIXME Reduce buttons to small height to fit other elements ?
 	 */
 private:
 	class HoverTarget {
@@ -75,7 +72,8 @@ private:
 		void repaint_button (QAbstractItemModel * model, const QModelIndex & index) const {
 			// For now, send signal dataChanged in model to force repainting
 			QMetaObject::invokeMethod (model, "dataChanged", Q_ARG (QModelIndex, index),
-			                           Q_ARG (QModelIndex, index));
+			                           Q_ARG (QModelIndex, index),
+			                           Q_ARG (QVector<int>, {Item::ButtonRole}));
 		}
 	};
 
@@ -94,7 +92,9 @@ signals:
 public:
 	Delegate (QObject * parent = nullptr) : QStyledItemDelegate (parent) {
 		supported_buttons << SupportedButton{Item::AcceptButton, Icon::accept ()}
-		                  << SupportedButton{Item::CancelButton, Icon::cancel ()};
+		                  << SupportedButton{Item::CancelButton, Icon::cancel ()}
+		                  << SupportedButton{Item::ChangeDownloadPathButton,
+		                                     Icon::change_download_path ()};
 	}
 
 	void paint (QPainter * painter, const QStyleOptionViewItem & option,
@@ -109,16 +109,13 @@ public:
 		// Paint buttons then paint content in shaved rect
 		auto button_size = option.rect.height ();
 		QStyleOptionViewItem content_option (option);
-		auto & content_rect = content_option.rect;
 		for (auto sb = supported_buttons.rbegin (); sb != supported_buttons.rend (); ++sb) {
 			if (buttons.testFlag (sb->flag)) {
-				// Split rect
-				content_rect.setWidth (content_rect.width () - button_size);
-				auto button_rect = QRect (content_rect.x () + content_rect.width (), content_rect.y (),
-				                          button_size, button_size);
 				// Draw button
 				QStyleOptionButton opt;
-				init_button_style (opt, content_option, index, *sb, button_rect);
+				init_button_style (opt, content_option, index, *sb);
+				auto button_size = get_button_size (opt);
+				opt.rect = carve_button_rect (content_option.rect, button_size);
 				QApplication::style ()->drawControl (QStyle::CE_PushButton, &opt, painter);
 			}
 		}
@@ -139,9 +136,7 @@ public:
 				// Add the button to the right
 				QStyleOptionButton opt;
 				init_button_style (opt, option, index, sb);
-				auto button_size = QApplication::style ()
-				                       ->sizeFromContents (QStyle::CT_PushButton, &opt, QSize ())
-				                       .expandedTo (QApplication::globalStrut ());
+				auto button_size = get_button_size (opt);
 				content_size = content_size.expandedTo (
 				    {content_size.width () + button_size.width (), button_size.height ()});
 			}
@@ -166,14 +161,8 @@ public:
 		 */
 		auto button_size = option.rect.height ();
 		QStyleOptionViewItem content_option (option);
-		auto & content_rect = content_option.rect;
 		for (auto sb = supported_buttons.rbegin (); sb != supported_buttons.rend (); ++sb) {
 			if (buttons.testFlag (sb->flag)) {
-				// Split rect
-				content_rect.setWidth (content_rect.width () - button_size);
-				auto button_rect = QRect (content_rect.x () + content_rect.width (), content_rect.y (),
-				                          button_size, button_size);
-
 				// Check if current button handles the event
 				switch (event->type ()) {
 				case QEvent::MouseButtonPress:
@@ -184,12 +173,17 @@ public:
 					// Event not from the mouse are left for QStyledItemDelegate
 					continue;
 				}
-				auto mev = static_cast<QMouseEvent *> (event);
-				if (!button_rect.contains (mev->pos ()))
-					continue; // Not in our rect
+				// Place button
 				QStyleOptionButton opt;
-				init_button_style (opt, option, index, *sb, button_rect);
-				bool hit_button = QApplication::style ()
+				init_button_style (opt, content_option, index, *sb);
+				auto button_size = get_button_size (opt);
+				opt.rect = carve_button_rect (content_option.rect, button_size);
+
+				// Test where the cursor is
+				auto mev = static_cast<QMouseEvent *> (event);
+				if (!opt.rect.contains (mev->pos ()))
+					continue; // Not in our rect
+				auto hit_button = QApplication::style ()
 				                      ->subElementRect (QStyle::SE_PushButtonFocusRect, &opt)
 				                      .contains (mev->pos ());
 				if (!hit_button) {
@@ -210,21 +204,42 @@ public:
 
 private:
 	Item::Buttons get_button_flags (const QModelIndex & index) const {
-		Q_ASSERT (index.isValid ());
-		auto v = index.data (Item::ButtonRole);
-		if (v.canConvert<Item::Buttons> ())
-			return v.value<Item::Buttons> ();
+		if (index.isValid ()) {
+			auto v = index.data (Item::ButtonRole);
+			if (v.canConvert<Item::Buttons> ())
+				return v.value<Item::Buttons> ();
+		}
 		return Item::NoButton;
+	}
+
+	// Button sizing
+
+	QSize get_button_size (const QStyleOptionButton & option) const {
+		auto button_icon_size = QApplication::style ()->pixelMetric (QStyle::PM_ButtonIconSize);
+		return QApplication::style ()
+		    ->sizeFromContents (QStyle::CT_PushButton, &option,
+		                        QSize (button_icon_size, button_icon_size))
+		    .expandedTo (QApplication::globalStrut ());
+	}
+
+	QRect carve_button_rect (QRect & rect, const QSize & button_size) const {
+		if (rect.width () < button_size.width () || rect.height () < button_size.height ())
+			return {};                                                            // Too small to fit
+		rect.setWidth (rect.width () - button_size.width ());                   // Carve rect
+		return QRect (rect.x () + rect.width (),                                // On the right
+		              rect.y () + (rect.height () - button_size.height ()) / 2, // Vertical center
+		              button_size.width (), button_size.height ());             // Sizehint size
 	}
 
 	// StyleOption init
 
 	void init_button_style (QStyleOptionButton & option, const QStyleOption & from,
-	                        const QModelIndex & index, const SupportedButton & button,
-	                        const QRect & rect = QRect ()) const {
-		option.QStyleOption::operator=(from);
-		option.rect = rect;
+	                        const QModelIndex & index, const SupportedButton & button) const {
+		option.QStyleOption::operator=(from); // Take palette, ...
+		option.rect = QRect ();               // But NOT rect, which will be computed separately
 		option.icon = button.icon;
+		auto button_icon_size = QApplication::style ()->pixelMetric (QStyle::PM_ButtonIconSize);
+		option.iconSize = QSize (button_icon_size, button_icon_size);
 		option.state = QStyle::State_Enabled;
 		if (hover_target.is_hovering (index, button.flag)) {
 			option.state |= QStyle::State_MouseOver;
@@ -240,7 +255,7 @@ private:
 
 	void init_progress_bar_style (QStyleOptionProgressBar & option, const QStyleOption & from,
 	                              const QModelIndex & index) const {
-		option.QStyleOption::operator=(from);
+		option.QStyleOption::operator=(from); // Take palette, ..., AND rect
 		option.minimum = 0;
 		option.maximum = 100;
 		option.progress = -1;

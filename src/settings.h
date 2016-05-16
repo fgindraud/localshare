@@ -2,6 +2,7 @@
 #define SETTINGS_H
 
 #include <QSettings>
+#include <QByteArray>
 #include <QProcessEnvironment>
 #include <QStandardPaths>
 #include <QDir>
@@ -78,6 +79,20 @@ class UseTray : public Element<bool> {
 private:
 	const char * key (void) const { return "interface/use_tray"; }
 	bool default_value (void) const { return true; }
+};
+
+class Geometry : public Element<QByteArray> {
+	// To save window geometry
+private:
+	const char * key (void) const { return "interface/geometry"; }
+	QByteArray default_value (void) const { return {}; }
+};
+
+class WindowState : public Element<QByteArray> {
+	// To save window toolbar setup
+private:
+	const char * key (void) const { return "interface/window_state"; }
+	QByteArray default_value (void) const { return {}; }
 };
 }
 
