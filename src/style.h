@@ -26,6 +26,7 @@ inline QIcon quit (void) {
 }
 
 inline QIcon download (void) {
+	// TODO find custom upload/download icons, make send() an upload icon
 	return from_style (QStyle::SP_ArrowDown);
 }
 inline QIcon upload (void) {
@@ -40,6 +41,9 @@ inline QIcon cancel (void) {
 }
 inline QIcon change_download_path (void) {
 	return from_style (QStyle::SP_DirIcon);
+}
+inline QIcon delete_transfer (void) {
+	return from_style (QStyle::SP_TrashIcon);
 }
 }
 

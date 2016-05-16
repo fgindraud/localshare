@@ -11,19 +11,20 @@ Done:
 * settings
 * interface:
 	* peer list: simple
-	* transfers: starting
+	* transfers: working
+* transfer protocol:
+	* file by file transfer
 
 Todo:
 * interface:
 	* struct model:
 		* support internal drag & drop ?
-	* transfers
 	* peer list:
-		* sliders if too large ?
 		* support pinning peers (moved to top)
 		* adding manual peers (by hostname or ip) / give info on local port/ip
-* transfer protocol (file only)
-* transfer protocol (directories, using tar.gz or streaming a tar like format)
+* transfer protocol:
+	* directories
+	* pre filter stuff in Transfer::Server before showing it
 * discovery browser/service error handling (low probability)
 * get attention if minimized (modified icon / OS specific way)
 

@@ -1,13 +1,14 @@
 #ifndef TRANSFER_DOWNLOAD_H
 #define TRANSFER_DOWNLOAD_H
 
-#include <QAbstractSocket>
+#include <QTcpSocket>
 #include <QDataStream>
+#include <QFileDialog>
 
 #include "style.h"
 #include "settings.h"
 #include "transfer.h"
-#include "struct_item_model.h"
+#include "transfer_model.h"
 
 namespace Transfer {
 
@@ -26,7 +27,8 @@ private:
 		WaitingHandshake,
 		WaitingOffer,
 		WaitingUserChoice,
-		Transfering
+		Transfering,
+		Finished
 	};
 
 	Status status{Error};
@@ -37,8 +39,11 @@ private:
 	qint64 next_message_size{-1};
 
 	QString filename;
+	QString filepath;
 	qint64 size{-1};
 	QString username;
+
+	QFile outfile;
 
 public:
 	Download (QAbstractSocket * connection)
@@ -60,8 +65,9 @@ private:
 		emit data_changed (StatusField);
 	}
 
-	void set_filename (const QString & new_filename) {
+	void set_filename (const QString & new_filename, const QString & new_filepath) {
 		filename = new_filename;
+		filepath = new_filepath;
 		emit data_changed (FilenameField);
 	}
 
@@ -80,7 +86,6 @@ private:
 		set_status (Error);
 		socket->abort ();
 		socket_stream.resetStatus ();
-		// TODO emit failed (reason);
 	}
 
 	QVariant data (int field, int role) const Q_DECL_OVERRIDE {
@@ -90,7 +95,12 @@ private:
 			switch (role) {
 			case Qt::DisplayRole:
 				return filename;
-			// TODO download path + editable ?
+			case Qt::StatusTipRole:
+			case Qt::ToolTipRole:
+				if (filepath.isEmpty ())
+					return tr ("Download");
+				else
+					return tr ("Downloading %1 to %2").arg (filename).arg (filepath);
 			case Qt::DecorationRole:
 				return Icon::download ();
 			case Item::ButtonRole:
@@ -107,7 +117,6 @@ private:
 					return socket->peerAddress ().toString ();
 				else
 					return username;
-				break;
 			case Qt::StatusTipRole:
 			case Qt::ToolTipRole:
 				return tr ("%1 on port %2")
@@ -131,10 +140,15 @@ private:
 			// Transfer progress in %, and in bytes for tooltip
 			switch (role) {
 			case Qt::DisplayRole:
-				return 1; // TODO
+				if (status < Transfering)
+					return 0;
+				else if (status == Transfering && size > 0)
+					return int((100 * outfile.pos ()) / size);
+				else
+					return 100;
 			case Qt::StatusTipRole:
 			case Qt::ToolTipRole:
-				return "1B/100B";
+				return QString ("%1/%2").arg (size_to_string (outfile.size ())).arg (size_to_string (size));
 			}
 		} break;
 		case StatusField: {
@@ -152,11 +166,15 @@ private:
 					return tr ("Download file ?");
 				case Transfering:
 					return tr ("Transfering");
+				case Finished:
+					return tr ("Transfer complete");
 				}
 			} break;
 			case Item::ButtonRole: {
+				Item::Buttons btns = Item::DeleteButton;
 				if (status == WaitingUserChoice)
-					return QVariant::fromValue<Item::Buttons> (Item::AcceptButton | Item::CancelButton);
+					btns |= Item::AcceptButton | Item::CancelButton;
+				return QVariant::fromValue<Item::Buttons> (btns);
 			} break;
 			}
 		} break;
@@ -175,16 +193,41 @@ private:
 	}
 
 	void button_clicked (int field, Button btn) Q_DECL_OVERRIDE {
-		// TODO
-		qDebug () << "download: button_clicked" << field << btn;
+		if (btn == Item::DeleteButton) {
+			socket->abort ();
+			deleteLater ();
+			return;
+		}
+
 		switch (status) {
 		case WaitingUserChoice: {
-											if (field == StatusField && Item::AcceptButton == btn)
-												set_status (Transfering);
+			switch (btn) {
+			case AcceptButton:
+				start_transfering ();
+				emit data_changed (FilenameField); // Removing button to change download filepath
+				return;
+			case CancelButton:
+				send_message (Message::Reject{});
+				socket->flush ();
+				socket->close ();
+				failure (tr ("Transfer cancelled"));
+				return;
+			case ChangeDownloadPathButton: {
+				QString path =
+				    QFileDialog::getSaveFileName (nullptr, tr ("Select download destination"), filepath);
+				if (!path.isEmpty ())
+					set_filename (filename, path);
+				return;
+			}
+			default:
+				break;
+			}
 		} break;
 		default:
-			qWarning () << "WTF ?";
+			break;
 		}
+		qWarning () << "unexpected: button" << static_cast<Buttons> (btn)
+		            << "has been clicked in status" << status << "for field" << field;
 	}
 
 	/* Protocol implementation
@@ -211,7 +254,7 @@ private slots:
 			if (!da_waiting_offer ())
 				break;
 			if (Settings::DownloadAuto ().get ()) {
-				set_status (Transfering);
+				start_transfering ();
 			} else {
 				set_status (WaitingUserChoice);
 				emit data_changed (FilenameField); // Adding button to change download filepath
@@ -224,10 +267,11 @@ private slots:
 			if (status == WaitingUserChoice)
 				break;
 		}
-		case Transfering: {
-			if (!da_transfering ())
-				break;
-		}
+		case Transfering:
+			da_transfering ();
+			break;
+		case Finished:
+			break;
 		}
 	}
 
@@ -235,6 +279,16 @@ private:
 	void initiate_protocol (void) {
 		set_status (WaitingHandshake);
 		socket_stream << Const::protocol_magic << Const::protocol_version;
+	}
+
+	void start_transfering (void) {
+		set_status (Transfering);
+		outfile.setFileName (filepath);
+		if (!outfile.open (QIODevice::WriteOnly)) {
+			failure (tr ("Cannot open destination file: ") + outfile.errorString ());
+			return;
+		}
+		send_message (Message::Accept{});
 	}
 
 	template <typename Msg> void send_message (const Msg & msg) {
@@ -303,12 +357,21 @@ private:
 		if (!check_datastream ())
 			return false;
 		set_username (offer.username);
-		set_filename (offer.filename);
+		set_filename (offer.filename, Settings::DownloadPath ().get () + "/" + offer.filename);
 		set_size (offer.size);
 		return true;
 	}
 
-	bool da_transfering (void) { return false; }
+	void da_transfering (void) {
+		auto data = socket->read (socket->bytesAvailable ());
+		outfile.write (data);
+		emit data_changed (ProgressField);
+		if (outfile.pos () == size) {
+			socket->disconnectFromHost ();
+			outfile.close ();
+			set_status (Finished);
+		}
+	}
 };
 }
 

@@ -38,6 +38,13 @@ public:
 	StructItem (int size, QObject * parent = nullptr) : QObject (parent), size (size) {}
 	~StructItem () { emit being_destroyed (this); }
 
+public slots:
+	void deleteLater (void) {
+		emit being_destroyed (this);
+		QObject::deleteLater ();
+	}
+
+public:
 	// Read only interface
 	virtual Qt::ItemFlags flags (int /*field*/) const {
 		return Qt::ItemIsEnabled | Qt::ItemIsSelectable;

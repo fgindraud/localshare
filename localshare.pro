@@ -9,8 +9,10 @@ HEADERS += src/localshare.h \
 			src/style.h \
 			src/struct_item_model.h \
 			src/transfer.h \
+			src/transfer_server.h \
 			src/transfer_upload.h \
 			src/transfer_download.h \
+			src/transfer_model.h \
 			src/transfer_delegate.h \
 			src/peer_list.h \
 			src/window.h

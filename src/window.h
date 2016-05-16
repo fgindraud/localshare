@@ -5,9 +5,10 @@
 #include "discovery.h"
 #include "settings.h"
 #include "style.h"
-#include "transfer.h"
+#include "transfer_server.h"
 #include "transfer_upload.h"
 #include "transfer_download.h"
+#include "transfer_model.h"
 #include "transfer_delegate.h"
 #include "peer_list.h"
 
@@ -90,6 +91,7 @@ public:
 			view->setStatusTip (
 			    tr ("List of discovered peers (select at least one to enable Application/Send...)"));
 			peer_list_view = view;
+			// TODO preset columns width
 
 			auto model = new PeerListModel (view);
 			view->setModel (model);
@@ -110,6 +112,7 @@ public:
 			view->setSelectionMode (QAbstractItemView::NoSelection); // delegate stuff looks bad
 			view->setSortingEnabled (true);
 			view->setMouseTracking (true); // To enable StatusTipRole elements to be used
+			// TODO preset columns width
 
 			auto delegate = new Transfer::Delegate (view);
 			view->setItemDelegate (delegate);
@@ -221,11 +224,13 @@ public:
 		restoreState (Settings::WindowState ().get ());
 		show (); // Show everything
 
+#if 0
 		// FIXME remove (test)
 		peer_added (Peer{"NSA", "nsa.gov", QHostAddress ("192.44.29.1"), 42});
 		peer_added (Peer{"ANSSI", "anssi.fr", QHostAddress ("8.8.8.8"), 1000});
 		request_upload (Peer{"Jean Jacques", "localhost", QHostAddress::LocalHost, server->port ()},
 		                "/home/fgindraud/todo");
+#endif
 	}
 
 	~Window () {

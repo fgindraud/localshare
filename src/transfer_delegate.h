@@ -11,12 +11,8 @@
 #include <QPersistentModelIndex>
 #include <array>
 
-#include <QPainter>
-
-#include <QDebug>
-
 #include "style.h"
-#include "transfer.h"
+#include "transfer_model.h"
 
 namespace Transfer {
 
@@ -94,7 +90,8 @@ public:
 		supported_buttons << SupportedButton{Item::AcceptButton, Icon::accept ()}
 		                  << SupportedButton{Item::CancelButton, Icon::cancel ()}
 		                  << SupportedButton{Item::ChangeDownloadPathButton,
-		                                     Icon::change_download_path ()};
+		                                     Icon::change_download_path ()}
+		                  << SupportedButton{Item::DeleteButton, Icon::delete_transfer ()};
 	}
 
 	void paint (QPainter * painter, const QStyleOptionViewItem & option,
@@ -107,7 +104,6 @@ public:
 		}
 
 		// Paint buttons then paint content in shaved rect
-		auto button_size = option.rect.height ();
 		QStyleOptionViewItem content_option (option);
 		for (auto sb = supported_buttons.rbegin (); sb != supported_buttons.rend (); ++sb) {
 			if (buttons.testFlag (sb->flag)) {
@@ -159,7 +155,6 @@ public:
 		 * Unless the event (mouse event) has been handled by a button, we continue.
 		 * This is used to determine content hitbox for QStyledItemDelegate::editorEvent.
 		 */
-		auto button_size = option.rect.height ();
 		QStyleOptionViewItem content_option (option);
 		for (auto sb = supported_buttons.rbegin (); sb != supported_buttons.rend (); ++sb) {
 			if (buttons.testFlag (sb->flag)) {
@@ -196,7 +191,7 @@ public:
 						emit button_clicked (index, sb->flag);
 					}
 				}
-				return true;
+				return event->type () != QEvent::MouseMove; // Let MouseMove propagate
 			}
 		}
 		return QStyledItemDelegate::editorEvent (event, model, content_option, index);

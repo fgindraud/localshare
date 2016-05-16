@@ -8,7 +8,7 @@
 
 #include "style.h"
 #include "transfer.h"
-#include "struct_item_model.h"
+#include "transfer_model.h"
 
 namespace Transfer {
 
@@ -27,8 +27,11 @@ private:
 		Connecting,
 		WaitingHandshake,
 		WaitingRequestAnswer,
-		Transfering
+		Transfering,
+		Finished
 	};
+
+	static constexpr qint64 max_send_queue_size = 1 << 13; // 8K, two pages
 
 	Status status{Error};
 	QString error{"init"};
@@ -38,6 +41,7 @@ private:
 	QTcpSocket socket;
 	QDataStream socket_stream;
 	qint64 next_message_size{-1};
+	qint64 bytes_sent{0};
 
 	QString filename;
 	QFile file;
@@ -119,10 +123,17 @@ private:
 			// Transfer progress in %, and in bytes for tooltip
 			switch (role) {
 			case Qt::DisplayRole:
-				return 42; // TODO
+				if (status < Transfering)
+					return 0;
+				else if (status == Transfering && file.size () > 0)
+					return int((100 * bytes_sent) / file.size ());
+				else
+					return 100;
 			case Qt::StatusTipRole:
 			case Qt::ToolTipRole:
-				return "42B/100B";
+				return QString ("%1/%2")
+				    .arg (size_to_string (bytes_sent))
+				    .arg (size_to_string (file.size ()));
 			}
 		} break;
 		case StatusField: {
@@ -139,7 +150,11 @@ private:
 					return tr ("Waiting peer answer");
 				case Transfering:
 					return tr ("Transfering");
+				case Finished:
+					return tr ("Transfer complete");
 				}
+			} else if (role == Item::ButtonRole) {
+				return QVariant::fromValue<Item::Buttons> (Item::DeleteButton);
 			}
 		} break;
 		}
@@ -157,8 +172,11 @@ private:
 	}
 
 	void button_clicked (int field, Button btn) Q_DECL_OVERRIDE {
-		// TODO
-		qDebug () << "upload: button_clicked" << field << btn;
+		(void) field;
+		if (btn == Item::DeleteButton) {
+			socket.abort ();
+			deleteLater ();
+		}
 	}
 
 	/* Protocol implementation
@@ -190,10 +208,24 @@ private slots:
 				break;
 			set_status (Transfering);
 		}
-		case Transfering: {
-			if (!da_transfering ())
-				break;
+		case Transfering:
+		case Finished:
+			break;
 		}
+	}
+
+	void socket_data_written (qint64 written) {
+		bytes_sent += written;
+		emit data_changed (ProgressField);
+		if (bytes_sent == file.size ()) {
+			socket.disconnectFromHost ();
+			file.close ();
+			set_status (Finished);
+			return;
+		}
+		if (!file.atEnd ()) {
+			auto chunk = file.read (max_send_queue_size - socket.bytesToWrite ());
+			socket.write (chunk);
 		}
 	}
 
@@ -201,6 +233,15 @@ private:
 	void initiate_connection (void) {
 		set_status (Connecting);
 		socket.connectToHost (peer.address, peer.port);
+	}
+
+	void start_transfering (void) {
+		set_status (Transfering);
+		emit data_changed (ProgressField);
+		connect (&socket, &QTcpSocket::bytesWritten, this, &Upload::socket_data_written);
+		if (!file.open (QIODevice::ReadOnly))
+			failure (tr ("Cannot open file:") + file.errorString ());
+		socket_data_written (0);
 	}
 
 	template <typename Msg> void send_message (const Msg & msg) {
@@ -265,19 +306,17 @@ private:
 		switch (code) {
 		case Message::Accept::code ():
 			// No data to read
+			start_transfering ();
 			return true;
 		case Message::Reject::code ():
 			// No data to read
-			failure (tr ("Transfer rejected by peer"));
+			failure (tr ("Transfer canceled by peer"));
 			return false;
 		default:
 			failure (tr ("Protocol error"));
 			return false;
 		}
-		return true;
 	}
-
-	bool da_transfering (void) { return false; }
 };
 }
 
