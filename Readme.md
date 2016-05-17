@@ -12,6 +12,7 @@ Done:
 * interface:
 	* peer list: simple
 	* transfers: working
+	* nice icons (thanks to http://picol.org)
 * transfer protocol:
 	* file by file transfer
 

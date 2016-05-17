@@ -3,7 +3,14 @@
 
 #include <QDebug>
 
+#include <QApplication>
+#include <QStyle>
+#include <QStyledItemDelegate>
+#include <QStyleOptionProgressBar>
+
+#include "style.h"
 #include "struct_item_model.h"
+#include "button_delegate.h"
 
 namespace Transfer {
 
@@ -24,7 +31,7 @@ public:
 	 * The buttons are manually painted on the view by a custom delegate.
 	 * The delegate also catches click events.
 	 */
-	enum Role { ButtonRole = Qt::UserRole };
+	enum Role { ButtonRole = ButtonDelegate::ButtonRole };
 	enum Button {
 		NoButton = 0x0,
 		AcceptButton = 0x1 << 0,
@@ -71,10 +78,9 @@ public:
 	}
 
 public slots:
-	void button_clicked (const QModelIndex & index, Item::Button btn) {
+	void button_clicked (const QModelIndex & index, int btn) {
 		if (has_item (index))
-			return get_item_t<Item *> (index)->button_clicked (index.column (), btn);
-		qCritical () << "button_clicked on invalid item" << index << btn;
+			return get_item_t<Item *> (index)->button_clicked (index.column (), Item::Button (btn));
 	}
 };
 
@@ -96,6 +102,69 @@ inline QString size_to_string (qint64 size) {
 	}
 	return QString ().setNum (num, 'f', 2) + suffixes[unit_idx];
 }
+
+class ProgressBarDelegate : public QStyledItemDelegate {
+	// Handles the painting of a progress bar
+public:
+	ProgressBarDelegate (QObject * parent = nullptr) : QStyledItemDelegate (parent) {}
+
+	void paint (QPainter * painter, const QStyleOptionViewItem & option,
+	            const QModelIndex & index) const Q_DECL_OVERRIDE {
+		switch (index.column ()) {
+		case Item::ProgressField: {
+			// Draw a progress bar
+			QStyleOptionProgressBar opt;
+			init_progress_bar_style (opt, option, index);
+			QApplication::style ()->drawControl (QStyle::CE_ProgressBar, &opt, painter);
+		} break;
+		default:
+			QStyledItemDelegate::paint (painter, option, index);
+		}
+	}
+
+	QSize sizeHint (const QStyleOptionViewItem & option,
+	                const QModelIndex & index) const Q_DECL_OVERRIDE {
+		switch (index.column ()) {
+		case Item::ProgressField: {
+			QStyleOptionProgressBar opt;
+			init_progress_bar_style (opt, option, index);
+			return QApplication::style ()->sizeFromContents (QStyle::CT_ProgressBar, &opt, QSize ());
+		} break;
+		default:
+			return QStyledItemDelegate::sizeHint (option, index);
+		}
+	}
+
+private:
+	void init_progress_bar_style (QStyleOptionProgressBar & option, const QStyleOption & from,
+	                              const QModelIndex & index) const {
+		option.QStyleOption::operator=(from); // Take palette, ..., AND rect
+		option.minimum = 0;
+		option.maximum = 100;
+		option.progress = -1;
+		auto value = index.data (Qt::DisplayRole);
+		if (value.canConvert<int> ()) {
+			auto v = value.toInt ();
+			option.progress = v;
+			option.text = QString ("%1%").arg (v);
+			option.textVisible = true;
+		}
+	}
+};
+
+class Delegate : public ButtonDelegate {
+public:
+	Delegate (QObject * parent = nullptr) : ButtonDelegate (parent) {
+		set_inner_delegate (new ProgressBarDelegate (this));
+
+		// Setup our specific buttons
+		supported_buttons << SupportedButton{Item::AcceptButton, Icon::accept ()}
+		                  << SupportedButton{Item::CancelButton, Icon::cancel ()}
+		                  << SupportedButton{Item::ChangeDownloadPathButton,
+		                                     Icon::change_download_path ()}
+		                  << SupportedButton{Item::DeleteButton, Icon::delete_transfer ()};
+	}
+};
 }
 
 #endif

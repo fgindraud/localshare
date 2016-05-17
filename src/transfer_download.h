@@ -105,7 +105,7 @@ private:
 				return Icon::download ();
 			case Item::ButtonRole:
 				if (status == WaitingUserChoice)
-					return QVariant::fromValue<Item::Buttons> (Item::ChangeDownloadPathButton);
+					return int (Item::ChangeDownloadPathButton);
 				break;
 			}
 		} break;
@@ -174,7 +174,7 @@ private:
 				Item::Buttons btns = Item::DeleteButton;
 				if (status == WaitingUserChoice)
 					btns |= Item::AcceptButton | Item::CancelButton;
-				return QVariant::fromValue<Item::Buttons> (btns);
+				return int (btns);
 			} break;
 			}
 		} break;

@@ -11,28 +11,36 @@ inline QIcon from_style (QStyle::StandardPixmap icon) {
 	return QApplication::style ()->standardIcon (icon);
 }
 
+// High def for mac
 inline QIcon app (void) {
 	return QIcon (":/icon.svg");
 }
 
+// Appear in toolbar
 inline QIcon send (void) {
-	return from_style (QStyle::SP_FileIcon);
+	return QIcon (":/send_file.svg");
 }
+inline QIcon add_peer (void) {
+	return QIcon (":/peer_add.svg");
+}
+
+// Optional
 inline QIcon restore (void) {
 	return QIcon::fromTheme ("view-restore");
 }
 inline QIcon quit (void) {
-	return QIcon::fromTheme ("application-exit", from_style (QStyle::SP_DialogCloseButton));
+	return QIcon::fromTheme ("application-exit");
 }
 
+// Matching pair
 inline QIcon download (void) {
-	// TODO find custom upload/download icons, make send() an upload icon
-	return from_style (QStyle::SP_ArrowDown);
+	return QIcon (":/download.svg");
 }
 inline QIcon upload (void) {
-	return from_style (QStyle::SP_ArrowUp);
+	return QIcon (":/upload.svg");
 }
 
+// View buttons
 inline QIcon accept (void) {
 	return from_style (QStyle::SP_DialogOkButton);
 }
@@ -40,10 +48,13 @@ inline QIcon cancel (void) {
 	return from_style (QStyle::SP_DialogCancelButton);
 }
 inline QIcon change_download_path (void) {
-	return from_style (QStyle::SP_DirIcon);
+	return QIcon::fromTheme ("emblem-downloads", from_style (QStyle::SP_DirIcon));
 }
 inline QIcon delete_transfer (void) {
-	return from_style (QStyle::SP_TrashIcon);
+	return QIcon::fromTheme ("edit-delete", from_style (QStyle::SP_TrashIcon));
+}
+inline QIcon remove_peer (void) {
+	return QIcon (":/peer_remove.svg");
 }
 }
 

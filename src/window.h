@@ -9,7 +9,6 @@
 #include "transfer_upload.h"
 #include "transfer_download.h"
 #include "transfer_model.h"
-#include "transfer_delegate.h"
 #include "peer_list.h"
 
 #include <QItemSelectionModel>
@@ -66,6 +65,9 @@ public:
 		action_send->setEnabled (false);
 		action_send->setStatusTip (tr ("Chooses a file to send to selected peers"));
 		connect (action_send, &QAction::triggered, this, &Window::action_send_clicked);
+
+		auto action_add_peer = new QAction (Icon::add_peer (), tr ("&Add manual peer..."), this);
+		action_add_peer->setStatusTip (tr ("Add a peer manually by ip and port"));
 
 		auto action_quit = new QAction (Icon::quit (), tr ("&Quit"), this);
 		action_quit->setShortcuts (QKeySequence::Quit);
@@ -148,6 +150,7 @@ public:
 		{
 			auto file = menuBar ()->addMenu (tr ("&Application"));
 			file->addAction (action_send);
+			file->addAction (action_add_peer);
 			file->addSeparator ();
 			file->addAction (action_quit);
 		}
@@ -214,6 +217,7 @@ public:
 			auto tool_bar = addToolBar (tr ("Application"));
 			tool_bar->setObjectName ("toolbar");
 			tool_bar->addAction (action_send);
+			tool_bar->addAction (action_add_peer);
 		}
 
 		// Status bar
@@ -224,7 +228,7 @@ public:
 		restoreState (Settings::WindowState ().get ());
 		show (); // Show everything
 
-#if 0
+#if 1
 		// FIXME remove (test)
 		peer_added (Peer{"NSA", "nsa.gov", QHostAddress ("192.44.29.1"), 42});
 		peer_added (Peer{"ANSSI", "anssi.fr", QHostAddress ("8.8.8.8"), 1000});

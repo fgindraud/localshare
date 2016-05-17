@@ -1,45 +1,42 @@
-#ifndef TRANSFER_DELEGATE_H
-#define TRANSFER_DELEGATE_H
+#ifndef BUTTON_DELEGATE_H
+#define BUTTON_DELEGATE_H
 
 #include <QList>
+#include <QAbstractItemDelegate>
 #include <QApplication>
 #include <QStyle>
-#include <QStyledItemDelegate>
-#include <QStyleOptionProgressBar>
 #include <QStyleOptionButton>
 #include <QMouseEvent>
 #include <QPersistentModelIndex>
-#include <array>
 
-#include "style.h"
-#include "transfer_model.h"
-
-namespace Transfer {
-
-class Delegate : public QStyledItemDelegate {
+class ButtonDelegate : public QAbstractItemDelegate {
 	Q_OBJECT
 
 	/* Add support for ButtonRole by appending buttons to cells.
-	 * Also adds a progress bar for ProgressField.
+	 * Must have an "inner_delegate" that handles the content outside of buttons.
 	 *
 	 * Buttons are placed on the right of each cell.
 	 * Their order is fixed and determined by the supported_buttons list order.
 	 * When drawn, buttons only take their sizeHint, and are vertically centered.
 	 *
-	 * sizeHint: their required size is added to content_sizeHint to the right.
+	 * sizeHint: their required size is added to inner_sizeHint to the right.
 	 * paint: paint buttons from right to left, shaving space of the item.
 	 * event: "paint" to get positions, then check rects.
+	 *
 	 */
+public:
+	enum Role { ButtonRole = Qt::UserRole }; // Custom role for buttons
+
 private:
 	class HoverTarget {
 		// Helper class to manage tracking of hovered button
 	private:
 		QPersistentModelIndex index{QModelIndex ()};
-		Item::Button button{Item::NoButton};
+		int button{0};
 		bool mouse_pressed{false};
 
 	public:
-		bool is_valid (void) const { return index.isValid () && button != Item::NoButton; }
+		bool is_valid (void) const { return index.isValid () && button != 0; }
 
 		void reset (QAbstractItemModel * model) {
 			if (is_valid ()) {
@@ -47,7 +44,7 @@ private:
 				*this = HoverTarget ();
 			}
 		}
-		void set (QAbstractItemModel * model, const QModelIndex & new_index, Item::Button new_button,
+		void set (QAbstractItemModel * model, const QModelIndex & new_index, int new_button,
 		          bool mouse_state) {
 			if (!is_valid () || index != new_index || button != new_button ||
 			    mouse_pressed != mouse_state) {
@@ -58,7 +55,7 @@ private:
 			}
 		}
 
-		bool is_hovering (const QModelIndex & test_index, Item::Button test_button) const {
+		bool is_hovering (const QModelIndex & test_index, int test_button) const {
 			return is_valid () && index == test_index && button == test_button;
 		}
 
@@ -68,86 +65,59 @@ private:
 		void repaint_button (QAbstractItemModel * model, const QModelIndex & index) const {
 			// For now, send signal dataChanged in model to force repainting
 			QMetaObject::invokeMethod (model, "dataChanged", Q_ARG (QModelIndex, index),
-			                           Q_ARG (QModelIndex, index),
-			                           Q_ARG (QVector<int>, {Item::ButtonRole}));
+			                           Q_ARG (QModelIndex, index), Q_ARG (QVector<int>, {ButtonRole}));
 		}
 	};
 
-private:
+protected:
 	struct SupportedButton {
-		Item::Button flag;
+		int flag;
 		QIcon icon;
 	};
-	QList<SupportedButton> supported_buttons;
+	QList<SupportedButton> supported_buttons; // Should be filled by subclasses
 
+	void set_inner_delegate (QAbstractItemDelegate * delegate) {
+		Q_ASSERT (inner_delegate == nullptr); // Only set once
+		inner_delegate = delegate;
+		// Propagate signals
+		connect (delegate, &QAbstractItemDelegate::closeEditor, this,
+		         &QAbstractItemDelegate::closeEditor);
+		connect (delegate, &QAbstractItemDelegate::commitData, this,
+		         &QAbstractItemDelegate::commitData);
+		connect (delegate, &QAbstractItemDelegate::sizeHintChanged, this,
+		         &QAbstractItemDelegate::sizeHintChanged);
+	}
+
+private:
 	HoverTarget hover_target; // Current hovered button (invalid if no button hovered)
+	QAbstractItemDelegate * inner_delegate{nullptr}; // Handles cell content (does not take ownership)
 
 signals:
-	void button_clicked (QModelIndex index, Item::Button btn);
+	void button_clicked (QModelIndex index, int btn);
 
 public:
-	Delegate (QObject * parent = nullptr) : QStyledItemDelegate (parent) {
-		supported_buttons << SupportedButton{Item::AcceptButton, Icon::accept ()}
-		                  << SupportedButton{Item::CancelButton, Icon::cancel ()}
-		                  << SupportedButton{Item::ChangeDownloadPathButton,
-		                                     Icon::change_download_path ()}
-		                  << SupportedButton{Item::DeleteButton, Icon::delete_transfer ()};
+	ButtonDelegate (QObject * parent = nullptr) : QAbstractItemDelegate (parent) {}
+
+	QWidget * createEditor (QWidget * parent, const QStyleOptionViewItem & option,
+	                        const QModelIndex & index) const Q_DECL_OVERRIDE {
+		Q_ASSERT (inner_delegate);
+		return inner_delegate->createEditor (parent, option, index);
 	}
 
-	void paint (QPainter * painter, const QStyleOptionViewItem & option,
-	            const QModelIndex & index) const Q_DECL_OVERRIDE {
-		// If no button paint content directly
-		auto buttons = get_button_flags (index);
-		if (buttons == Item::NoButton) {
-			content_paint (painter, option, index);
-			return;
-		}
-
-		// Paint buttons then paint content in shaved rect
-		QStyleOptionViewItem content_option (option);
-		for (auto sb = supported_buttons.rbegin (); sb != supported_buttons.rend (); ++sb) {
-			if (buttons.testFlag (sb->flag)) {
-				// Draw button
-				QStyleOptionButton opt;
-				init_button_style (opt, content_option, index, *sb);
-				auto button_size = get_button_size (opt);
-				opt.rect = carve_button_rect (content_option.rect, button_size);
-				QApplication::style ()->drawControl (QStyle::CE_PushButton, &opt, painter);
-			}
-		}
-		content_paint (painter, content_option, index);
-	}
-
-	QSize sizeHint (const QStyleOptionViewItem & option,
-	                const QModelIndex & index) const Q_DECL_OVERRIDE {
-		// Get content sizeHint, return it directly if no buttons
-		auto content_size = QStyledItemDelegate::sizeHint (option, index);
-		auto buttons = get_button_flags (index);
-		if (buttons == Item::NoButton)
-			return content_size;
-
-		// Add sizeHints from buttons, packed to the right
-		for (auto & sb : supported_buttons) {
-			if (buttons.testFlag (sb.flag)) {
-				// Add the button to the right
-				QStyleOptionButton opt;
-				init_button_style (opt, option, index, sb);
-				auto button_size = get_button_size (opt);
-				content_size = content_size.expandedTo (
-				    {content_size.width () + button_size.width (), button_size.height ()});
-			}
-		}
-		return content_size;
+	void destroyEditor (QWidget * editor, const QModelIndex & index) const Q_DECL_OVERRIDE {
+		Q_ASSERT (inner_delegate);
+		inner_delegate->destroyEditor (editor, index);
 	}
 
 	bool editorEvent (QEvent * event, QAbstractItemModel * model, const QStyleOptionViewItem & option,
 	                  const QModelIndex & index) Q_DECL_OVERRIDE {
+		Q_ASSERT (inner_delegate);
 		// If no buttons redirect event to QStyledItemDelegate
 		auto buttons = get_button_flags (index);
-		if (buttons == Item::NoButton) {
+		if (buttons == 0) {
 			if (event->type () == QEvent::MouseMove)
 				hover_target.reset (model); // Mouse is outside a button
-			return QStyledItemDelegate::editorEvent (event, model, option, index);
+			return inner_delegate->editorEvent (event, model, option, index);
 		}
 
 		/* If buttons, determine button hitboxes to see who handles events.
@@ -155,9 +125,9 @@ public:
 		 * Unless the event (mouse event) has been handled by a button, we continue.
 		 * This is used to determine content hitbox for QStyledItemDelegate::editorEvent.
 		 */
-		QStyleOptionViewItem content_option (option);
+		QStyleOptionViewItem inner_option (option);
 		for (auto sb = supported_buttons.rbegin (); sb != supported_buttons.rend (); ++sb) {
-			if (buttons.testFlag (sb->flag)) {
+			if (test_flag (buttons, sb->flag)) {
 				// Check if current button handles the event
 				switch (event->type ()) {
 				case QEvent::MouseButtonPress:
@@ -170,9 +140,9 @@ public:
 				}
 				// Place button
 				QStyleOptionButton opt;
-				init_button_style (opt, content_option, index, *sb);
+				init_button_style (opt, inner_option, index, *sb);
 				auto button_size = get_button_size (opt);
-				opt.rect = carve_button_rect (content_option.rect, button_size);
+				opt.rect = carve_button_rect (inner_option.rect, button_size);
 
 				// Test where the cursor is
 				auto mev = static_cast<QMouseEvent *> (event);
@@ -194,18 +164,91 @@ public:
 				return event->type () != QEvent::MouseMove; // Let MouseMove propagate
 			}
 		}
-		return QStyledItemDelegate::editorEvent (event, model, content_option, index);
+		return inner_delegate->editorEvent (event, model, inner_option, index);
+	}
+
+	bool helpEvent (QHelpEvent * event, QAbstractItemView * view, const QStyleOptionViewItem & option,
+	                const QModelIndex & index) Q_DECL_OVERRIDE {
+		Q_ASSERT (inner_delegate);
+		return inner_delegate->helpEvent (event, view, option, index);
+	}
+
+	void paint (QPainter * painter, const QStyleOptionViewItem & option,
+	            const QModelIndex & index) const Q_DECL_OVERRIDE {
+		Q_ASSERT (inner_delegate);
+		// If no button paint content directly
+		auto buttons = get_button_flags (index);
+		if (buttons == 0) {
+			inner_delegate->paint (painter, option, index);
+			return;
+		}
+
+		// Paint buttons then paint content in shaved rect
+		QStyleOptionViewItem inner_option (option);
+		for (auto sb = supported_buttons.rbegin (); sb != supported_buttons.rend (); ++sb) {
+			if (test_flag (buttons, sb->flag)) {
+				// Draw button
+				QStyleOptionButton opt;
+				init_button_style (opt, inner_option, index, *sb);
+				auto button_size = get_button_size (opt);
+				opt.rect = carve_button_rect (inner_option.rect, button_size);
+				QApplication::style ()->drawControl (QStyle::CE_PushButton, &opt, painter);
+			}
+		}
+		inner_delegate->paint (painter, inner_option, index);
+	}
+
+	void setEditorData (QWidget * editor, const QModelIndex & index) const Q_DECL_OVERRIDE {
+		Q_ASSERT (inner_delegate);
+		inner_delegate->setEditorData (editor, index);
+	}
+
+	void setModelData (QWidget * editor, QAbstractItemModel * model,
+	                   const QModelIndex & index) const {
+		Q_ASSERT (inner_delegate);
+		inner_delegate->setModelData (editor, model, index);
+	}
+
+	QSize sizeHint (const QStyleOptionViewItem & option,
+	                const QModelIndex & index) const Q_DECL_OVERRIDE {
+		Q_ASSERT (inner_delegate);
+		// Get content sizeHint, return it directly if no buttons
+		auto inner_size = inner_delegate->sizeHint (option, index);
+		auto buttons = get_button_flags (index);
+		if (buttons == 0)
+			return inner_size;
+
+		// Add sizeHints from buttons, packed to the right
+		for (auto & sb : supported_buttons) {
+			if (test_flag (buttons, sb.flag)) {
+				// Add the button to the right
+				QStyleOptionButton opt;
+				init_button_style (opt, option, index, sb);
+				auto button_size = get_button_size (opt);
+				inner_size = inner_size.expandedTo (
+				    {inner_size.width () + button_size.width (), button_size.height ()});
+			}
+		}
+		return inner_size;
+	}
+
+	void updateEditorGeometry (QWidget * editor, const QStyleOptionViewItem & option,
+	                           const QModelIndex & index) const Q_DECL_OVERRIDE {
+		Q_ASSERT (inner_delegate);
+		inner_delegate->updateEditorGeometry (editor, option, index);
 	}
 
 private:
-	Item::Buttons get_button_flags (const QModelIndex & index) const {
+	int get_button_flags (const QModelIndex & index) const {
 		if (index.isValid ()) {
-			auto v = index.data (Item::ButtonRole);
-			if (v.canConvert<Item::Buttons> ())
-				return v.value<Item::Buttons> ();
+			auto v = index.data (ButtonRole);
+			if (v.canConvert<int> ())
+				return v.toInt ();
 		}
-		return Item::NoButton;
+		return 0;
 	}
+
+	bool test_flag (int buttons, int button) const { return (buttons & button) != 0; }
 
 	// Button sizing
 
@@ -247,51 +290,6 @@ private:
 			option.state |= QStyle::State_Raised;
 		}
 	}
-
-	void init_progress_bar_style (QStyleOptionProgressBar & option, const QStyleOption & from,
-	                              const QModelIndex & index) const {
-		option.QStyleOption::operator=(from); // Take palette, ..., AND rect
-		option.minimum = 0;
-		option.maximum = 100;
-		option.progress = -1;
-		auto value = index.data (Qt::DisplayRole);
-		if (value.canConvert<int> ()) {
-			auto v = value.toInt ();
-			option.progress = v;
-			option.text = QString ("%1%").arg (v);
-			option.textVisible = true;
-		}
-	}
-
-	// Content management
-
-	void content_paint (QPainter * painter, const QStyleOptionViewItem & option,
-	                    const QModelIndex & index) const {
-		// Paint content of cell
-		switch (index.column ()) {
-		case Item::ProgressField: {
-			// Draw a progress bar
-			QStyleOptionProgressBar opt;
-			init_progress_bar_style (opt, option, index);
-			QApplication::style ()->drawControl (QStyle::CE_ProgressBar, &opt, painter);
-		} break;
-		default:
-			QStyledItemDelegate::paint (painter, option, index);
-		}
-	}
-
-	QSize content_sizehint (const QStyleOptionViewItem & option, const QModelIndex & index) const {
-		switch (index.column ()) {
-		case Item::ProgressField: {
-			QStyleOptionProgressBar opt;
-			init_progress_bar_style (opt, option, index);
-			return QApplication::style ()->sizeFromContents (QStyle::CT_ProgressBar, &opt, QSize ());
-		} break;
-		default:
-			return QStyledItemDelegate::sizeHint (option, index);
-		}
-	}
 };
-}
 
 #endif

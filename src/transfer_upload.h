@@ -154,7 +154,7 @@ private:
 					return tr ("Transfer complete");
 				}
 			} else if (role == Item::ButtonRole) {
-				return QVariant::fromValue<Item::Buttons> (Item::DeleteButton);
+				return int (Item::DeleteButton);
 			}
 		} break;
 		}
