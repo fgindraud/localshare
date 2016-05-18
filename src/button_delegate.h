@@ -211,7 +211,7 @@ public:
 	}
 
 	void setModelData (QWidget * editor, QAbstractItemModel * model,
-	                   const QModelIndex & index) const {
+	                   const QModelIndex & index) const Q_DECL_OVERRIDE {
 		Q_ASSERT (inner_delegate);
 		inner_delegate->setModelData (editor, model, index);
 	}
