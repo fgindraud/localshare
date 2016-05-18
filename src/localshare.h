@@ -7,6 +7,7 @@
 namespace Const {
 // Application name for settings, etc...
 constexpr auto app_name = "localshare";
+constexpr auto app_version = "0.1";
 
 // Network service name
 constexpr auto service_name = "_localshare._tcp.";

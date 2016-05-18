@@ -15,16 +15,21 @@ before_install:
    - source ./build/${PLATFORM}/requirement.sh
 
 install:
-   - qmake
+   - qmake -config release
    - make
 
 script:
-   - echo "Ok"
-   - ls -l
+   - echo "Build Ok"
+
+before_deploy:
+   - source ./build/${PLATFORM}/package.sh
 
 deploy:
    provider: releases
-   api_key: "$GH_API_KEY"
+   api_key:
+      secure: g9G8rl7hoDubYuFROAmwNfJT1feZL/Lat3fJmWEfxn5ZiX6CpIX9s3E3+TxLOZSWWBBLrqMVAMEYHakgPgNS+AQPSGeYTT+x/9i1p98qQN6tBGmxINovolpgIougatX42r6dyplw0QdVTpBwnZ+n6AkB2fnNhCim5x4E7XCL2QqcyHNRnU6XX2yFs139IS60u+wgKGEA9Tedgi0eQsGH2HWUF1aID0E8tt4a6Y0CGS1oGMdc3Rk69WJ2Lvy3GEQ9si6Zx6FeeQjAIS4ZmC/8cMK13Tnm7gIY5zEB+HmLmX8IwaqDYv+m/up6dd4b2uoFJjwdPGnZlfOqMqlbb42bzHC00WrQxYjQWyZssGKeJnH3tujnKo4EgCfKi0eEm4n5AP5gNOZE/B5uxM2rVMLB8av9Td9KSmaFE9BzIp6qU+f+Tuq7g16Znp5Wg5DEmE0i3ZbkQrSFIRQzSO80++9bmSQ3pOlMVCdbB1BKL+7ZCb1O4vCKT5ac8olunp8lXnXop0P+OjCzz7yKNy2tMURWKnPbphow7S2SyFNXqEaSTHMhdygHvZnaX4v2mr0AHFRHQcFPD2nh7SU/1TLLx2nzcVe76qr4TCGjWZ82z+Ab5fBdS/jI3WNre+szCswiBOTYzGaJGcZn0yZ45wLflTQDtVXaPtz33i6t+o2qc59OzEI=
+   file: "$(ls localshare-${PLATFORM}*)"
    skip_cleanup: true
    on:
+      repo: lereldarion/qt-localshare
       tags: true

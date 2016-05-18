@@ -1,31 +1,31 @@
 #ifndef WINDOW_H
 #define WINDOW_H
 
-#include "localshare.h"
 #include "discovery.h"
+#include "localshare.h"
+#include "peer_list.h"
 #include "settings.h"
 #include "style.h"
-#include "transfer_server.h"
-#include "transfer_upload.h"
 #include "transfer_download.h"
 #include "transfer_list.h"
-#include "peer_list.h"
+#include "transfer_server.h"
+#include "transfer_upload.h"
 
-#include <QItemSelectionModel>
-#include <QMainWindow>
-#include <QSystemTrayIcon>
-#include <QTreeView>
-#include <QSplitter>
-#include <QLabel>
 #include <QAction>
-#include <QMenu>
-#include <QStatusBar>
-#include <QToolBar>
-#include <QCloseEvent>
-#include <QMenuBar>
-#include <QFileDialog>
-#include <QMessageBox>
 #include <QApplication>
+#include <QCloseEvent>
+#include <QFileDialog>
+#include <QItemSelectionModel>
+#include <QLabel>
+#include <QMainWindow>
+#include <QMenu>
+#include <QMenuBar>
+#include <QMessageBox>
+#include <QSplitter>
+#include <QStatusBar>
+#include <QSystemTrayIcon>
+#include <QToolBar>
+#include <QTreeView>
 
 class Window : public QMainWindow {
 	Q_OBJECT
@@ -209,7 +209,8 @@ public:
 			about->setStatusTip (tr ("Information about Localshare"));
 			connect (about, &QAction::triggered, [=] {
 				QMessageBox::about (this, tr ("About Localshare"),
-				                    tr ("Localshare is a small file sharing app for the local network."));
+				                    tr ("Localshare v%1 is a small file sharing app for the local network.")
+				                        .arg (Const::app_version));
 				// TODO improve description
 			});
 

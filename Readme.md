@@ -1,6 +1,8 @@
 LocalShare - Local file sharing application
 ===========================================
 
+[![Build Status][build-status]][travis]
+
 Small graphical application to send a file to a local peer.
 
 Status
