@@ -1,13 +1,26 @@
 language: cpp
 
-# Installing deps
-before_install:
-   - sudo apt-get -qq update
-install:
-   - sudo apt-get install -y qt5-default qttools5-dev-tools
-   - sudo apt-get install -y libavahi-compat-libdnssd-dev
+matrix:
+   include:
+      - env: PLATFORM='linux'
+        os: linux
+        dist: trusty
+        sudo: required
 
-script:
+      - env: PLATFORM='mac'
+        os: osx
+        osx_image: xcode7.2
+
+   allow_failures:
+      - os: osx
+
+before_install:
+   - ./build/${PLATFORM}/requirements.sh
+
+install:
    - qmake
    - make
+
+script:
+   - echo "Ok"
 
