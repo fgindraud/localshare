@@ -5,6 +5,7 @@
 #include <QAbstractItemDelegate>
 #include <QApplication>
 #include <QStyle>
+#include <QStyleOptionViewItem>
 #include <QStyleOptionButton>
 #include <QMouseEvent>
 #include <QPersistentModelIndex>
@@ -101,7 +102,7 @@ public:
 	QWidget * createEditor (QWidget * parent, const QStyleOptionViewItem & option,
 	                        const QModelIndex & index) const Q_DECL_OVERRIDE {
 		Q_ASSERT (inner_delegate);
-		return inner_delegate->createEditor (parent, option, index);
+		return inner_delegate->createEditor (parent, trim_rect_for_button_space (option, index), index);
 	}
 
 	void destroyEditor (QWidget * editor, const QModelIndex & index) const Q_DECL_OVERRIDE {
@@ -175,7 +176,8 @@ public:
 	bool helpEvent (QHelpEvent * event, QAbstractItemView * view, const QStyleOptionViewItem & option,
 	                const QModelIndex & index) Q_DECL_OVERRIDE {
 		Q_ASSERT (inner_delegate);
-		return inner_delegate->helpEvent (event, view, option, index);
+		return inner_delegate->helpEvent (event, view, trim_rect_for_button_space (option, index),
+		                                  index);
 	}
 
 	void paint (QPainter * painter, const QStyleOptionViewItem & option,
@@ -240,7 +242,8 @@ public:
 	void updateEditorGeometry (QWidget * editor, const QStyleOptionViewItem & option,
 	                           const QModelIndex & index) const Q_DECL_OVERRIDE {
 		Q_ASSERT (inner_delegate);
-		inner_delegate->updateEditorGeometry (editor, option, index);
+		inner_delegate->updateEditorGeometry (editor, trim_rect_for_button_space (option, index),
+		                                      index);
 	}
 
 private:
@@ -274,7 +277,7 @@ private:
 		              button_size.width (), button_size.height ());             // Sizehint size
 	}
 
-	// StyleOption init
+	// StyleOption
 
 	void init_button_style (QStyleOptionButton & option, const QStyleOption & from,
 	                        const QModelIndex & index, const SupportedButton & button) const {
@@ -294,6 +297,25 @@ private:
 		} else {
 			option.state |= QStyle::State_Raised;
 		}
+	}
+
+	QStyleOptionViewItem trim_rect_for_button_space (const QStyleOptionViewItem & option,
+	                                                 const QModelIndex & index) const {
+		// Simple function that will parse buttons, and trim space from inner delegate.
+		// Used for simple forwarding to inner_delegate where rects are involved.
+		auto buttons = get_button_flags (index);
+		if (buttons == 0)
+			return option;
+		QStyleOptionViewItem inner_option (option);
+		for (auto sb = supported_buttons.rbegin (); sb != supported_buttons.rend (); ++sb) {
+			if (test_flag (buttons, sb->flag)) {
+				QStyleOptionButton opt;
+				init_button_style (opt, inner_option, index, *sb);
+				auto button_size = get_button_size (opt);
+				carve_button_rect (inner_option.rect, button_size);
+			}
+		}
+		return inner_option;
 	}
 };
 

@@ -92,8 +92,6 @@ public:
 			view->setSelectionMode (QAbstractItemView::ExtendedSelection);
 			view->setSortingEnabled (true);
 			view->setMouseTracking (true);
-			view->setStatusTip (
-			    tr ("List of discovered peers (select at least one to enable Application/Send...)"));
 			peer_list_view = view;
 			// TODO preset columns width
 
@@ -118,7 +116,7 @@ public:
 			view->setAlternatingRowColors (true);
 			view->setRootIsDecorated (false);
 			view->setSelectionBehavior (QAbstractItemView::SelectRows);
-			view->setSelectionMode (QAbstractItemView::NoSelection); // delegate stuff looks bad
+			view->setSelectionMode (QAbstractItemView::NoSelection);
 			view->setSortingEnabled (true);
 			view->setMouseTracking (true);
 			// TODO preset columns width

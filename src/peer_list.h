@@ -6,6 +6,8 @@
 #include <QStyledItemDelegate>
 #include <QBrush>
 #include <QHostInfo>
+#include <QSpinBox>
+#include <limits>
 
 #include "localshare.h"
 #include "struct_item_model.h"
@@ -101,7 +103,7 @@ public:
 	QVariant data (int field, int role) const Q_DECL_OVERRIDE {
 		switch (role) {
 		case Qt::EditRole: {
-			return Item::data (field, Qt::DisplayRole); // TODO
+			return Item::data (field, Qt::DisplayRole);
 		} break;
 		case Qt::BackgroundRole: {
 			if (is_valid ()) {
@@ -239,8 +241,26 @@ public slots:
 class InnerDelegate : public QStyledItemDelegate {
 public:
 	InnerDelegate (QObject * parent = nullptr) : QStyledItemDelegate (parent) {}
-	// TODO nicer delegate for editing peers: tab friendly, limit range of ports, extend qlineedits,
-	// and provide clean rects in ButtonDelegate
+
+	QWidget * createEditor (QWidget * parent, const QStyleOptionViewItem & option,
+	                        const QModelIndex & index) const Q_DECL_OVERRIDE {
+		auto widget = QStyledItemDelegate::createEditor (parent, option, index);
+		if (index.column () == Item::PortField) {
+			// Limit port field spin box range to valid ports
+			auto spin_box = qobject_cast<QSpinBox *> (widget);
+			if (spin_box) {
+				using L = std::numeric_limits<quint16>;
+				spin_box->setMinimum (int(L::min ()));
+				spin_box->setMaximum (int(L::max ()));
+			}
+		}
+		return widget;
+	}
+
+	void updateEditorGeometry (QWidget * editor, const QStyleOptionViewItem & option,
+	                           const QModelIndex &) const Q_DECL_OVERRIDE {
+		editor->setGeometry (option.rect); // Force editors to fit
+	}
 };
 
 class Delegate : public ButtonDelegate {

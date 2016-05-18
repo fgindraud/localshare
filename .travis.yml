@@ -1,0 +1,13 @@
+language: cpp
+
+# Installing deps
+before_install:
+   - sudo apt-get -qq update
+install:
+   - sudo apt-get install -y qt5-default qttools5-dev-tools
+   - sudo apt-get install -y libavahi-compat-libdnssd-dev
+
+script:
+   - qmake
+   - make
+

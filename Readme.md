@@ -20,6 +20,7 @@ Done:
 
 Todo:
 * transfer protocol:
+	* improve perf
 	* directories
 	* pre filter stuff in Transfer::Server before showing it
 * discovery browser/service error handling (low probability)
