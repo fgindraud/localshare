@@ -8,7 +8,7 @@
 #include "transfer_server.h"
 #include "transfer_upload.h"
 #include "transfer_download.h"
-#include "transfer_model.h"
+#include "transfer_list.h"
 #include "peer_list.h"
 
 #include <QItemSelectionModel>
@@ -42,7 +42,7 @@ private:
 	QLabel * status_message{nullptr};
 
 	QAbstractItemView * peer_list_view{nullptr};
-	PeerListModel * peer_list_model{nullptr};
+	PeerList::Model * peer_list_model{nullptr};
 	Transfer::Model * transfer_list_model{nullptr};
 
 public:
@@ -66,8 +66,9 @@ public:
 		action_send->setStatusTip (tr ("Chooses a file to send to selected peers"));
 		connect (action_send, &QAction::triggered, this, &Window::action_send_clicked);
 
-		auto action_add_peer = new QAction (Icon::add_peer (), tr ("&Add manual peer..."), this);
-		action_add_peer->setStatusTip (tr ("Add a peer manually by ip and port"));
+		auto action_add_peer = new QAction (Icon::add_peer (), tr ("&Add manual peer"), this);
+		action_add_peer->setStatusTip (tr ("Add a peer entry to fill manually"));
+		connect (action_add_peer, &QAction::triggered, this, &Window::new_manual_peer);
 
 		auto action_quit = new QAction (Icon::quit (), tr ("&Quit"), this);
 		action_quit->setShortcuts (QKeySequence::Quit);
@@ -90,12 +91,16 @@ public:
 			view->setSelectionBehavior (QAbstractItemView::SelectRows);
 			view->setSelectionMode (QAbstractItemView::ExtendedSelection);
 			view->setSortingEnabled (true);
+			view->setMouseTracking (true);
 			view->setStatusTip (
 			    tr ("List of discovered peers (select at least one to enable Application/Send...)"));
 			peer_list_view = view;
 			// TODO preset columns width
 
-			auto model = new PeerListModel (view);
+			auto delegate = new PeerList::Delegate (view);
+			view->setItemDelegate (delegate);
+
+			auto model = new PeerList::Model (view);
 			view->setModel (model);
 			peer_list_model = model;
 
@@ -103,6 +108,8 @@ public:
 			         [=](const QItemSelection & selection) {
 				         action_send->setEnabled (!selection.isEmpty ());
 				       });
+			connect (delegate, &PeerList::Delegate::button_clicked, model,
+			         &PeerList::Model::button_clicked);
 		}
 
 		// Transfer table
@@ -113,7 +120,7 @@ public:
 			view->setSelectionBehavior (QAbstractItemView::SelectRows);
 			view->setSelectionMode (QAbstractItemView::NoSelection); // delegate stuff looks bad
 			view->setSortingEnabled (true);
-			view->setMouseTracking (true); // To enable StatusTipRole elements to be used
+			view->setMouseTracking (true);
 			// TODO preset columns width
 
 			auto delegate = new Transfer::Delegate (view);
@@ -289,14 +296,21 @@ private slots:
 		for (auto & index : selection) {
 			if (index.column () == 0 && peer_list_model->has_item (index)) {
 				// TreeView selected row generates 4 selection items ; only keep 1 per row
-				request_upload (peer_list_model->get_item_t<PeerItem *> (index)->peer, filepath);
+				request_upload (peer_list_model->get_item_t<PeerList::Item *> (index)->get_peer (),
+				                filepath);
 			}
 		}
 	}
 
+	void new_manual_peer (void) {
+		auto item = new PeerList::ManualItem (peer_list_model);
+		connect (item, &PeerList::Item::request_upload, this, &Window::request_upload);
+		peer_list_model->append (item);
+	}
+
 	void peer_added (const Peer & peer) {
-		auto item = new PeerItem (peer, peer_list_model);
-		connect (item, &PeerItem::request_upload, this, &Window::request_upload);
+		auto item = new PeerList::Item (peer, peer_list_model);
+		connect (item, &PeerList::Item::request_upload, this, &Window::request_upload);
 		peer_list_model->append (item);
 	}
 

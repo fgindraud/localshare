@@ -53,7 +53,7 @@ inline QIcon change_download_path (void) {
 inline QIcon delete_transfer (void) {
 	return QIcon::fromTheme ("edit-delete", from_style (QStyle::SP_TrashIcon));
 }
-inline QIcon remove_peer (void) {
+inline QIcon delete_peer (void) {
 	return QIcon (":/peer_remove.svg");
 }
 }

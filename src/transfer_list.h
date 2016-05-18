@@ -1,5 +1,5 @@
-#ifndef TRANSFER_MODEL_H
-#define TRANSFER_MODEL_H
+#ifndef TRANSFER_LIST_H
+#define TRANSFER_LIST_H
 
 #include <QDebug>
 

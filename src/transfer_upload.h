@@ -8,7 +8,7 @@
 
 #include "style.h"
 #include "transfer.h"
-#include "transfer_model.h"
+#include "transfer_list.h"
 
 namespace Transfer {
 

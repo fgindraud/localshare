@@ -167,6 +167,11 @@ public:
 		return inner_delegate->editorEvent (event, model, inner_option, index);
 	}
 
+	bool eventFilter (QObject * editor, QEvent * event) Q_DECL_OVERRIDE {
+		Q_ASSERT (inner_delegate);
+		return inner_delegate->eventFilter (editor, event);
+	}
+
 	bool helpEvent (QHelpEvent * event, QAbstractItemView * view, const QStyleOptionViewItem & option,
 	                const QModelIndex & index) Q_DECL_OVERRIDE {
 		Q_ASSERT (inner_delegate);

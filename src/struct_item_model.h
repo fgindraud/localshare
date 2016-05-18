@@ -51,6 +51,11 @@ public:
 	}
 	virtual QVariant data (int field, int role) const = 0;
 
+	// Edit interface
+	virtual bool setData (int /*field*/, const QVariant & /*value*/, int /*role*/) {
+		return false; // Edit failed
+	}
+
 	// Drag & Drop
 	virtual bool canDropMimeData (const QMimeData * /*mimedata*/, Qt::DropAction /*action*/,
 	                              int /*field*/) const {
@@ -206,7 +211,12 @@ public:
 	}
 
 	// Editable interface
-	// TODO
+	bool setData (const QModelIndex & index, const QVariant & value,
+	              int role = Qt::EditRole) Q_DECL_OVERRIDE {
+		if (has_item (index))
+			return get_item (index)->setData (index.column (), value, role);
+		return false;
+	}
 
 	/* Resizing interface.
 	 * Only moving elements is supported.

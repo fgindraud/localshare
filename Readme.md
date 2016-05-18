@@ -10,19 +10,15 @@ Done:
 * mDNS browsing
 * settings
 * interface:
-	* peer list: simple
-	* transfers: working
+	* peer list:
+		* automatically filled by discovery
+		* supports manual peers (added by ip/port)
+	* transfers: working (basic)
 	* nice icons (thanks to http://picol.org)
 * transfer protocol:
 	* file by file transfer
 
 Todo:
-* interface:
-	* struct model:
-		* support internal drag & drop ?
-	* peer list:
-		* support pinning peers (moved to top)
-		* adding manual peers (by hostname or ip) / give info on local port/ip
 * transfer protocol:
 	* directories
 	* pre filter stuff in Transfer::Server before showing it
