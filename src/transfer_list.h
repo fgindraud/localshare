@@ -7,6 +7,7 @@
 #include <QStyle>
 #include <QStyledItemDelegate>
 #include <QStyleOptionProgressBar>
+#include <QFlags>
 
 #include "style.h"
 #include "struct_item_model.h"
@@ -40,7 +41,6 @@ public:
 		DeleteButton = 0x1 << 3
 	};
 	Q_DECLARE_FLAGS (Buttons, Button);
-	Q_FLAG (Buttons);
 
 public:
 	Item (QObject * parent = nullptr) : StructItem (NbFields, parent) {}

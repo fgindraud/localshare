@@ -22,3 +22,9 @@ script:
    - echo "Ok"
    - ls -l
 
+deploy:
+   provider: releases
+   api_key: "$GH_API_KEY"
+   skip_cleanup: true
+   on:
+      tags: true

@@ -1,14 +1,16 @@
 #ifndef BUTTON_DELEGATE_H
 #define BUTTON_DELEGATE_H
 
-#include <QList>
 #include <QAbstractItemDelegate>
 #include <QApplication>
-#include <QStyle>
-#include <QStyleOptionViewItem>
-#include <QStyleOptionButton>
+#include <QList>
 #include <QMouseEvent>
 #include <QPersistentModelIndex>
+#include <QStyle>
+#include <QStyleOptionButton>
+#include <QStyleOptionViewItem>
+
+#include "compatibility.h"
 
 class ButtonDelegate : public QAbstractItemDelegate {
 	Q_OBJECT
@@ -127,7 +129,7 @@ public:
 		 * This is used to determine content hitbox for QStyledItemDelegate::editorEvent.
 		 */
 		QStyleOptionViewItem inner_option (option);
-		for (auto sb = supported_buttons.rbegin (); sb != supported_buttons.rend (); ++sb) {
+		for (auto sb = rbegin (supported_buttons); sb != rend (supported_buttons); ++sb) {
 			if (test_flag (buttons, sb->flag)) {
 				// Check if current button handles the event
 				switch (event->type ()) {
@@ -192,7 +194,7 @@ public:
 
 		// Paint buttons then paint content in shaved rect
 		QStyleOptionViewItem inner_option (option);
-		for (auto sb = supported_buttons.rbegin (); sb != supported_buttons.rend (); ++sb) {
+		for (auto sb = rbegin (supported_buttons); sb != rend (supported_buttons); ++sb) {
 			if (test_flag (buttons, sb->flag)) {
 				// Draw button
 				QStyleOptionButton opt;
@@ -281,8 +283,8 @@ private:
 
 	void init_button_style (QStyleOptionButton & option, const QStyleOption & from,
 	                        const QModelIndex & index, const SupportedButton & button) const {
-		option.QStyleOption::operator=(from); // Take palette, ...
-		option.rect = QRect ();               // But NOT rect, which will be computed separately
+		option.QStyleOption::operator= (from); // Take palette, ...
+		option.rect = QRect ();                // But NOT rect, which will be computed separately
 		option.icon = button.icon;
 		auto button_icon_size = QApplication::style ()->pixelMetric (QStyle::PM_ButtonIconSize);
 		option.iconSize = QSize (button_icon_size, button_icon_size);
@@ -307,7 +309,7 @@ private:
 		if (buttons == 0)
 			return option;
 		QStyleOptionViewItem inner_option (option);
-		for (auto sb = supported_buttons.rbegin (); sb != supported_buttons.rend (); ++sb) {
+		for (auto sb = rbegin (supported_buttons); sb != rend (supported_buttons); ++sb) {
 			if (test_flag (buttons, sb->flag)) {
 				QStyleOptionButton opt;
 				init_button_style (opt, inner_option, index, *sb);

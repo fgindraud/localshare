@@ -35,7 +35,7 @@ qmake
 make
 ```
 
-Requires Qt5 and c++11 compiler support.
+Requires Qt >= 5.2 and c++11 compiler support.
 
 Binary is standalone and doesn't need any files to work (except for Qt libraries that should be installed system wide for convenience).
 It may store some settings at user level (storage depends on the system, see the QtCore/QSettings documentation).

@@ -1,17 +1,18 @@
 #ifndef PEER_LIST_H
 #define PEER_LIST_H
 
-#include <QMimeData>
-#include <QUrl>
-#include <QStyledItemDelegate>
 #include <QBrush>
 #include <QHostInfo>
+#include <QMimeData>
 #include <QSpinBox>
+#include <QStyledItemDelegate>
+#include <QUrl>
+#include <QFlags>
 #include <limits>
 
+#include "button_delegate.h"
 #include "localshare.h"
 #include "struct_item_model.h"
-#include "button_delegate.h"
 #include "style.h"
 
 namespace PeerList {
@@ -26,6 +27,7 @@ public:
 	// Buttons
 	enum Role { ButtonRole = ButtonDelegate::ButtonRole };
 	enum Button { NoButton = 0x0, DeleteButton = 0x1 << 0 };
+	Q_DECLARE_FLAGS (Buttons, Button);
 
 protected:
 	Peer peer;
@@ -77,6 +79,7 @@ public:
 
 	virtual void button_clicked (int, Button) {}
 };
+Q_DECLARE_OPERATORS_FOR_FLAGS (Item::Buttons);
 
 class ManualItem : public Item {
 	Q_OBJECT
@@ -87,7 +90,7 @@ class ManualItem : public Item {
 	 * Invalid state has a red background, cannot be selected nor accept drops.
 	 */
 public:
-	ManualItem (QObject * parent = nullptr) : Item (Peer{}, parent) {}
+	ManualItem (QObject * parent = nullptr) : Item (Peer (), parent) {}
 
 	QString get_username (void) const Q_DECL_OVERRIDE {
 		return {}; // Return invalid username to prevent matching by model

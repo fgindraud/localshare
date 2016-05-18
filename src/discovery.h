@@ -10,6 +10,7 @@
 #include <dns_sd.h>
 
 #include "localshare.h"
+#include "compatibility.h"
 
 namespace Discovery {
 
