@@ -234,7 +234,7 @@ public:
 		restoreState (Settings::WindowState ().get ());
 		show (); // Show everything
 
-#if 1
+#if 0
 		// FIXME remove (test)
 		peer_added (Peer{"NSA", "nsa.gov", QHostAddress ("192.44.29.1"), 42});
 		peer_added (Peer{"ANSSI", "anssi.fr", QHostAddress ("8.8.8.8"), 1000});

@@ -1,32 +1,11 @@
 LocalShare - Local file sharing application
 ===========================================
 
-[![Build Status][build-status]][travis]
+[![Build Status](https://travis-ci.org/lereldarion/qt-localshare.svg?branch=master)](https://travis-ci.org/lereldarion/qt-localshare)
 
 Small graphical application to send a file to a local peer.
-
-Status
-------
-
-Done:
-* mDNS browsing
-* settings
-* interface:
-	* peer list:
-		* automatically filled by discovery
-		* supports manual peers (added by ip/port)
-	* transfers: working (basic)
-	* nice icons (thanks to http://picol.org)
-* transfer protocol:
-	* file by file transfer
-
-Todo:
-* transfer protocol:
-	* improve perf
-	* directories
-	* pre filter stuff in Transfer::Server before showing it
-* discovery browser/service error handling (low probability)
-* get attention if minimized (modified icon / OS specific way)
+Peers on the local network are automatically discovered using Bonjour/Zeroconf.
+Distant peer can be manually added (but performing a transfer requires an open firewall on the destination).
 
 Setup
 -----
@@ -37,10 +16,12 @@ qmake
 make
 ```
 
-Requires Qt >= 5.2 and c++11 compiler support.
+Requires Qt >= 5.2, Bonjour support (see below) and c++11 compiler support.
+Details about dependencies can be found in the `build/*/requirement.sh` files.
 
-Binary is standalone and doesn't need any files to work (except for Qt libraries that should be installed system wide for convenience).
-It may store some settings at user level (storage depends on the system, see the QtCore/QSettings documentation).
+Binaries can be found in the release section.
+They are standalone (icons & such are included), but they do not include Qt or Bonjour libraries.
+Localshare may store some settings at user level (storage depends on the system, see the QtCore/QSettings documentation).
 
 mDNS browsing and resolution
 ----------------------------
@@ -57,4 +38,27 @@ More precisely, it uses the *Bonjour* API to implement mDNS Service Discovery.
 * Windows:
 	- **Not tested**
 	- Support through *mDNSResponder* (Bonjour Windows service, provided by apple)
+
+Status
+------
+
+Done:
+* mDNS browsing
+* settings
+* interface:
+	* peer list:
+		* automatically filled by discovery
+		* supports manual peers (added by ip/port)
+	* transfers: working (basic)
+	* nice icons (credits to http://picol.org)
+* transfer protocol:
+	* file by file transfer
+
+Todo:
+* transfer protocol:
+	* improve perf
+	* directories
+	* pre filter stuff in Transfer::Server before showing it
+* discovery browser/service error handling (low probability)
+* get attention if minimized (modified icon / OS specific way)
 
