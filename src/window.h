@@ -35,8 +35,7 @@ class Window : public QMainWindow {
 	 * visibility. Application can be closed by tray menu -> quit.
 	 */
 private:
-	Transfer::Server * server{nullptr};
-	QString our_username;
+	Discovery::LocalDnsPeer * local_peer{nullptr};
 
 	QSystemTrayIcon * tray{nullptr};
 	QLabel * status_message{nullptr};
@@ -46,18 +45,18 @@ private:
 	Transfer::Model * transfer_list_model{nullptr};
 
 public:
-	Window (const QString & blah, QWidget * parent = nullptr) : QMainWindow (parent) {
+	Window (QWidget * parent = nullptr) : QMainWindow (parent) {
 		// Start Server
-		server = new Transfer::Server (this);
+		auto server = new Transfer::Server (this);
 		connect (server, &Transfer::Server::new_connection, this, &Window::incoming_connection);
 
-		// Discovery setup
-		auto username = Settings::Username ().get () + blah;
-		auto service = new Discovery::Service (username, Const::service_name, server->port (), this);
-		connect (service, &Discovery::Service::registered, this, &Window::service_registered);
+		// Local peer
+		local_peer = new Discovery::LocalDnsPeer (server->port (), this);
+		connect (local_peer, &Discovery::DnsPeer::name_changed, this, &Window::set_window_title);
 
-		// Window
-		setWindowTitle (Const::app_name);
+		// Discovery setup
+		auto service = new Discovery::Service (local_peer, this);
+		connect (service, &Discovery::Service::registered, this, &Window::service_registered);
 
 		// Common actions
 		auto action_send = new QAction (Icon::send (), tr ("&Send..."), this);
@@ -230,17 +229,10 @@ public:
 		status_message = new QLabel (tr ("Localshare starting up..."));
 		statusBar ()->addWidget (status_message);
 
+		set_window_title ();
 		restoreGeometry (Settings::Geometry ().get ());
 		restoreState (Settings::WindowState ().get ());
 		show (); // Show everything
-
-#if 0
-		// FIXME remove (test)
-		peer_added (Peer{"NSA", "nsa.gov", QHostAddress ("192.44.29.1"), 42});
-		peer_added (Peer{"ANSSI", "anssi.fr", QHostAddress ("8.8.8.8"), 1000});
-		request_upload (Peer{"Jean Jacques", "localhost", QHostAddress::LocalHost, server->port ()},
-		                "/home/fgindraud/todo");
-#endif
 	}
 
 	~Window () {
@@ -261,19 +253,20 @@ protected:
 	}
 
 private slots:
-	void service_registered (QString username) {
-		our_username = username;
+	void set_window_title (void) {
+		setWindowTitle (tr ("Localshare - %1").arg (local_peer->get_username ()));
+	}
 
-		// Complete the window when final username has been received from service registration
-		setWindowTitle (QString ("%1 - %2").arg (Const::app_name).arg (our_username));
+	void service_registered (QString name) {
+		local_peer->set_name (name);
+
 		status_message->setText (tr ("Localshare running on port %1 with username %2")
-		                             .arg (server->port ())
-		                             .arg (our_username));
+		                             .arg (local_peer->get_port ())
+		                             .arg (local_peer->get_username ()));
 
 		// Start browsing
-		auto browser = new Discovery::Browser (our_username, Const::service_name, peer_list_model);
-		connect (browser, &Discovery::Browser::added, this, &Window::peer_added);
-		connect (browser, &Discovery::Browser::removed, this, &Window::peer_removed);
+		auto browser = new Discovery::Browser (local_peer, this);
+		connect (browser, &Discovery::Browser::added, this, &Window::new_discovered_peer);
 	}
 
 	void tray_activated (QSystemTrayIcon::ActivationReason reason) {
@@ -307,16 +300,14 @@ private slots:
 		peer_list_model->append (item);
 	}
 
-	void peer_added (const Peer & peer) {
-		auto item = new PeerList::Item (peer, peer_list_model);
+	void new_discovered_peer (Discovery::DnsPeer * peer) {
+		auto item = new PeerList::DiscoveryItem (peer);
 		connect (item, &PeerList::Item::request_upload, this, &Window::request_upload);
 		peer_list_model->append (item);
 	}
 
-	void peer_removed (const QString & username) { peer_list_model->delete_peer (username); }
-
 	void request_upload (const Peer & peer, const QString & filepath) {
-		auto upload = new Transfer::Upload (peer, filepath, our_username, transfer_list_model);
+		auto upload = new Transfer::Upload (peer, filepath, local_peer->get_username (), transfer_list_model);
 		transfer_list_model->append (upload);
 	}
 

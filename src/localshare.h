@@ -10,7 +10,7 @@ constexpr auto app_name = "localshare";
 constexpr auto app_version = "0.1";
 
 // Network service name
-constexpr auto service_name = "_localshare._tcp.";
+constexpr auto service_type = "_localshare._tcp.";
 
 // Protocol
 constexpr auto serializer_version = QDataStream::Qt_5_0; // We are only compatible with Qt5 anyway

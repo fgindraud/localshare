@@ -2,21 +2,27 @@
 #define PEER_LIST_H
 
 #include <QBrush>
+#include <QFlags>
 #include <QHostInfo>
 #include <QMimeData>
 #include <QSpinBox>
 #include <QStyledItemDelegate>
 #include <QUrl>
-#include <QFlags>
 #include <limits>
 
 #include "button_delegate.h"
+#include "discovery.h"
 #include "localshare.h"
 #include "struct_item_model.h"
 #include "style.h"
 
 namespace PeerList {
 
+/* Peer list item base.
+ * Can have a button to delete it (for manual items).
+ * It is invalid if not enough information is filed to use it.
+ * Invalid state has a red background, cannot be selected nor accept drops.
+ */
 class Item : public StructItem {
 	Q_OBJECT
 
@@ -36,20 +42,22 @@ signals:
 	void request_upload (Peer peer, QString filepath);
 
 public:
-	Item (const Peer & peer, QObject * parent = nullptr)
-	    : StructItem (NbFields, parent), peer (peer) {}
+	Item (QObject * parent = nullptr) : StructItem (NbFields, parent), peer () {}
 
 	const Peer & get_peer (void) const { return peer; }
-	virtual QString get_username (void) const { return peer.username; }
 
 	// Model
 	Qt::ItemFlags flags (int field) const Q_DECL_OVERRIDE {
-		return StructItem::flags (field) | Qt::ItemIsDropEnabled;
+		auto f = StructItem::flags (field) | Qt::ItemIsDropEnabled;
+		if (!is_valid ())
+			f &= ~Qt::ItemIsSelectable;
+		return f;
 	}
 
 	QVariant data (int field, int role) const Q_DECL_OVERRIDE {
 		switch (role) {
-		case Qt::DisplayRole: {
+		case Qt::DisplayRole:
+		case Qt::EditRole: {
 			switch (field) {
 			case UsernameField:
 				return peer.username;
@@ -61,12 +69,16 @@ public:
 				return peer.port;
 			}
 		} break;
+		case Qt::BackgroundRole: {
+			if (!is_valid ())
+				return QBrush (Qt::red);
+		} break;
 		}
 		return {};
 	}
 
 	bool canDropMimeData (const QMimeData * mimedata, Qt::DropAction, int) const Q_DECL_OVERRIDE {
-		return mimedata->hasUrls ();
+		return is_valid () && mimedata->hasUrls ();
 	}
 	bool dropMimeData (const QMimeData * mimedata, Qt::DropAction action, int field) Q_DECL_OVERRIDE {
 		if (!canDropMimeData (mimedata, action, field))
@@ -77,49 +89,63 @@ public:
 		return true;
 	}
 
-	virtual void button_clicked (int, Button) {}
+	void button_clicked (int, Button btn) {
+		if (btn == DeleteButton)
+			deleteLater ();
+	}
+
+protected:
+	void edited_data (int field) {
+		emit data_changed (field, field, QVector<int>{Qt::DisplayRole, Qt::EditRole});
+		emit data_changed (UsernameField, PortField, QVector<int>{Qt::BackgroundRole});
+	}
+
+private:
+	bool is_valid (void) const {
+		return !peer.username.isEmpty () && !peer.address.isNull () && peer.port > 0;
+	}
 };
 Q_DECLARE_OPERATORS_FOR_FLAGS (Item::Buttons);
 
+/* Item coming from Discovery.
+ *
+ */
+class DiscoveryItem : public Item {
+	Q_OBJECT
+
+public:
+	DiscoveryItem (Discovery::DnsPeer * dns_peer) : Item (dns_peer) {
+		peer.username = dns_peer->get_username (); // TODO for now store username
+		peer.hostname = dns_peer->get_hostname ();
+		peer.port = dns_peer->get_port ();
+		QHostInfo::lookupHost (peer.hostname, this, SLOT (address_lookup_complete (QHostInfo)));
+	}
+
+private slots:
+	void address_lookup_complete (const QHostInfo & info) {
+		if (info.error () == QHostInfo::NoError && !info.addresses ().isEmpty ()) {
+			peer.address = info.addresses ().first ();
+			edited_data (AddressField);
+		}
+	}
+};
+
+/* Manually added peer.
+ * It is editable in place, and can be deleted by a button.
+ */
 class ManualItem : public Item {
 	Q_OBJECT
 
-	/* Manually added peer.
-	 * It is editable in place, and can be deleted by a button.
-	 * It is invalid if not enough information is filed to use it.
-	 * Invalid state has a red background, cannot be selected nor accept drops.
-	 */
 public:
-	ManualItem (QObject * parent = nullptr) : Item (Peer (), parent) {}
-
-	QString get_username (void) const Q_DECL_OVERRIDE {
-		return {}; // Return invalid username to prevent matching by model
-	}
+	ManualItem (QObject * parent = nullptr) : Item (parent) {}
 
 	Qt::ItemFlags flags (int field) const Q_DECL_OVERRIDE {
-		auto f = Item::flags (field) | Qt::ItemIsEditable;
-		if (!is_valid ())
-			f &= ~Qt::ItemIsSelectable;
-		return f;
+		return Item::flags (field) | Qt::ItemIsEditable;
 	}
 
 	QVariant data (int field, int role) const Q_DECL_OVERRIDE {
-		switch (role) {
-		case Qt::EditRole: {
-			return Item::data (field, Qt::DisplayRole);
-		} break;
-		case Qt::BackgroundRole: {
-			if (is_valid ()) {
-				return Item::data (field, role);
-			} else {
-				return QBrush (Qt::red);
-			}
-		} break;
-		case ButtonRole: {
-			if (field == UsernameField)
-				return int(DeleteButton);
-		} break;
-		}
+		if (role == ButtonRole && field == UsernameField)
+			return int(DeleteButton);
 		return Item::data (field, role);
 	}
 
@@ -154,16 +180,6 @@ public:
 		return true;
 	}
 
-	bool canDropMimeData (const QMimeData * mimedata, Qt::DropAction action,
-	                      int field) const Q_DECL_OVERRIDE {
-		return is_valid () && Item::canDropMimeData (mimedata, action, field);
-	}
-
-	void button_clicked (int, Button btn) Q_DECL_OVERRIDE {
-		if (btn == DeleteButton)
-			deleteLater ();
-	}
-
 private slots:
 	void address_lookup_complete (const QHostInfo & info) {
 		if (info.error () == QHostInfo::NoError && !info.addresses ().isEmpty ()) {
@@ -177,35 +193,16 @@ private slots:
 			edited_data (HostnameField);
 		}
 	}
-
-private:
-	bool is_valid (void) const {
-		return !peer.username.isEmpty () && !peer.address.isNull () && peer.port > 0;
-	}
-	void edited_data (int field) {
-		emit data_changed (field, field, QVector<int>{Qt::DisplayRole, Qt::EditRole});
-		emit data_changed (UsernameField, PortField, QVector<int>{Qt::BackgroundRole});
-	}
 };
 
+/* Model just sets header data and dispatches button clicks.
+ * Also sets drop model-wide stuff (mimetypes).
+ */
 class Model : public StructItemModel {
 	Q_OBJECT
 
-	// Model just sets header data and dispatches button clicks
 public:
 	Model (QObject * parent = nullptr) : StructItemModel (Item::NbFields, parent) {}
-
-	void delete_peer (const QString & username) {
-		for (auto i = 0; i < size (); ++i) {
-			auto item = at_t<Item *> (i);
-			Q_ASSERT (item != nullptr);
-			if (item->get_username () == username) {
-				item->deleteLater ();
-				return;
-			}
-		}
-		qCritical () << "PeerListModel: peer not found:" << username;
-	}
 
 	QVariant headerData (int section, Qt::Orientation orientation,
 	                     int role = Qt::DisplayRole) const Q_DECL_OVERRIDE {
@@ -241,6 +238,9 @@ public slots:
 	}
 };
 
+/* Actual delegate.
+ * Customize editors widgets.
+ */
 class InnerDelegate : public QStyledItemDelegate {
 public:
 	InnerDelegate (QObject * parent = nullptr) : QStyledItemDelegate (parent) {}
@@ -266,6 +266,8 @@ public:
 	}
 };
 
+/* Subclass of ButtonDelegate, sets the possible buttons.
+ */
 class Delegate : public ButtonDelegate {
 public:
 	Delegate (QObject * parent = nullptr) : ButtonDelegate (parent) {

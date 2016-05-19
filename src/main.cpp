@@ -6,7 +6,7 @@
 #include <QApplication>
 
 namespace Transfer {
-	Sizes sizes; // Precompute sizes
+Sizes sizes; // Precompute sizes
 }
 
 int main (int argc, char * argv[]) {
@@ -17,11 +17,7 @@ int main (int argc, char * argv[]) {
 	QApplication app (argc, argv);
 	app.setWindowIcon (Icon::app ());
 
-	QString blah;
-	if (argc >= 2)
-		blah = argv[1];
-
-	Window window (blah);
-
+	Window window;
+	
 	return app.exec ();
 }

@@ -37,7 +37,7 @@ private:
 	QString error{"init"};
 
 	const Peer peer;
-	const QString & our_username;
+	const QString our_username;
 	QTcpSocket socket;
 	QDataStream socket_stream;
 	qint64 next_message_size{-1};

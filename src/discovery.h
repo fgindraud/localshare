@@ -2,8 +2,9 @@
 #define DISCOVERY_H
 
 #include <QHostInfo>
-#include <QSet>
 #include <QSocketNotifier>
+#include <QString>
+#include <QTime>
 #include <QtEndian>
 
 #include <dns_sd.h>
@@ -11,156 +12,205 @@
 
 #include "compatibility.h"
 #include "localshare.h"
+#include "settings.h"
 
 namespace Discovery {
 
-class Service;
-class Browser;
+/* QObject representing a discovered peer.
+ * As Bonjour does not provide Ip resolution itself, ip is not contained.
+ * These objects will be owned by the browser.
+ * On Browser failure, they will be destroyed.
+ *
+ * name VS username:
+ * - name is the service raw name.
+ *   It includes the machine name to allow same usernames on the network.
+ *   It must be unique.
+ * - username is the user name on the network.
+ *   It is used by the gui, but the discovery doesn't care.
+ *
+ * The local_peer is used to represent the local machine.
+ * It allows to prevent showing our own instance of localshare.
+ */
+class DnsPeer : public QObject {
+	Q_OBJECT
 
-/*
- * Helper class to manage a DNSServiceRef
+private:
+	QString name;
+	QString hostname;
+	quint16 port; // Host byte order
+
+signals:
+	void name_changed (void);
+
+public:
+	DnsPeer (QObject * parent = nullptr) : QObject (parent) {}
+
+	QString get_name (void) const { return name; }
+	void set_name (const QString & new_name) {
+		name = new_name;
+		emit name_changed ();
+	}
+	QString get_hostname (void) const { return hostname; }
+	void set_hostname (const QString & new_hostname) { hostname = new_hostname; }
+	quint16 get_port (void) const { return port; }
+	void set_port (quint16 new_port) { port = new_port; }
+
+	QString get_username (void) const {
+		auto s = get_name ().section ('@', 0, -2);
+		if (!s.isEmpty ())
+			return s;
+		return get_name ();
+	}
+
+protected:
+	void set_username (const QString & username, const QString & suffix) {
+		set_name (QString ("%1@%2").arg (username, suffix));
+	}
+};
+
+class LocalDnsPeer : public DnsPeer {
+private:
+	QString suffix;
+
+public:
+	LocalDnsPeer (quint16 server_port, QObject * parent = nullptr)
+	    : DnsPeer (parent), suffix (QHostInfo::localHostName ()) {
+		if (suffix.isEmpty ()) {
+			// Random suffix
+			qsrand (QTime::currentTime ().msec ());
+			suffix.setNum (qrand ());
+		}
+		set_username (Settings::Username ().get (), suffix);
+		set_port (server_port);
+	}
+};
+
+/* Helper class to manage a DNSServiceRef.
+ * On error, the class emits the error and calls deleteLater as it is supposedly broken.
+ * This class must only be created with new DnsSocket ()...
  */
 class DnsSocket : public QObject {
 	Q_OBJECT
 
 private:
-	DNSServiceRef ref;
+	DNSServiceRef ref{nullptr};
 
 signals:
-	void error (DNSServiceErrorType);
+	void error (QString);
 
 public:
-	DnsSocket (const DNSServiceRef & ref, QObject * parent = nullptr) : QObject (parent), ref (ref) {
+	DnsSocket (QObject * parent = nullptr) : QObject (parent) {}
+	~DnsSocket () { DNSServiceRefDeallocate (ref); }
+
+protected:
+	template <typename QueryFunc, typename... Args>
+	void init_with (QueryFunc && query_func, Args &&... args) {
+		auto err = std::forward<QueryFunc> (query_func) (&ref, std::forward<Args> (args)...);
+		if (has_error (err)) {
+			failure (err);
+			return;
+		}
 		auto fd = DNSServiceRefSockFD (ref);
 		if (fd != -1) {
 			auto notifier = new QSocketNotifier (fd, QSocketNotifier::Read, this);
 			connect (notifier, &QSocketNotifier::activated, this, &DnsSocket::has_pending_data);
 		} else {
+			// Should never happen, the function is just an accessor
 			qFatal ("DNSServiceRefSockFD failed");
 		}
 	}
-	~DnsSocket () { DNSServiceRefDeallocate (ref); }
 
-	template <typename... Args> static DnsSocket * fromRegister (QObject * parent, Args &&... args) {
-		return fromFunc (parent, DNSServiceRegister, "DNSServiceRegister",
-		                 std::forward<Args> (args)...);
-	}
-	template <typename... Args> static DnsSocket * fromResolve (QObject * parent, Args &&... args) {
-		return fromFunc (parent, DNSServiceResolve, "DNSServiceResolve", std::forward<Args> (args)...);
-	}
-	template <typename... Args> static DnsSocket * fromBrowse (QObject * parent, Args &&... args) {
-		return fromFunc (parent, DNSServiceBrowse, "DNSServiceBrowse", std::forward<Args> (args)...);
+	// Error handling
+	using Error = DNSServiceErrorType;
+	static bool has_error (Error e) { return e != kDNSServiceErr_NoError; }
+
+	void failure (Error e) {
+		emit error (error_string (e));
+		deleteLater ();
 	}
 
-private:
-	template <typename QueryFunc, typename... Args>
-	static DnsSocket * fromFunc (QObject * parent, QueryFunc && query_func, const char * func_name,
-	                             Args &&... args) {
-		DNSServiceRef ref;
-		auto err = std::forward<QueryFunc> (query_func) (&ref, std::forward<Args> (args)...);
-		if (err == kDNSServiceErr_NoError) {
-			return new DnsSocket (ref, parent);
-		} else {
-			qWarning () << func_name << "error:" << err;
-			return nullptr;
+	virtual QString error_string (Error e) {
+		switch (e) {
+		case kDNSServiceErr_NoError:
+			return tr ("No error");
+		// TODO more, and add in subclasses
+		default:
+			return tr ("Unknown error");
 		}
 	}
 
 private slots:
 	void has_pending_data (void) {
 		auto err = DNSServiceProcessResult (ref);
-		if (err != kDNSServiceErr_NoError) {
-			qWarning () << "DNSServiceProcessResult error:" << err;
-			emit error (err);
-		}
+		if (has_error (err))
+			failure (err);
 	}
 };
 
-/*
- * Service announce class
+/* Service announce class
+ *
+ * Registers at construction, and unregister at destruction.
+ * Name of service is limited to kDNSServiceMaxServiceName utf8 bytes (64B including '\0'
+ * currently).
+ * Longer names will be truncated by the library, so do nothing about that.
+ * The actual registered name will be provided by the callback and given to the app through the
+ * registered signal.
  */
-class Service : public QObject {
+class Service : public DnsSocket {
 	Q_OBJECT
 
-	/* Registers at construction, and unregister at destruction.
-	 * Name of service is limited to kDNSServiceMaxServiceName utf8 bytes (64B including '\0'
-	 * currently). Longer names will be truncated by the library, so do nothing about that. The actual
-	 * registered name will be provided by the callback and given to the app through the registered
-	 * signal.
-	 *
-	 * Errors are critical.
-	 * TODO expose them and handle them ?
-	 */
 signals:
 	void registered (QString name);
 
 public:
-	Service (const QString & name, const QString & service_name, quint16 tcp_port,
-	         QObject * parent = nullptr)
-	    : QObject (parent) {
-		DnsSocket::fromRegister (
-		    this, 0 /* flags */, 0 /* any interface */, qUtf8Printable (name),
-		    qUtf8Printable (service_name), nullptr /* default domain */, nullptr /* default hostname */,
-		    qToBigEndian (tcp_port) /* port in NBO */, 0, nullptr /* text len and text */,
-		    register_callback, this /* context */);
+	Service (const DnsPeer * local_peer, QObject * parent = nullptr) : DnsSocket (parent) {
+		init_with (DNSServiceRegister, 0 /* flags */, 0 /* any interface */,
+		           qUtf8Printable (local_peer->get_name ()), qUtf8Printable (Const::service_type),
+		           nullptr /* default domain */, nullptr /* default hostname */,
+		           qToBigEndian (local_peer->get_port ()) /* port in NBO */, 0,
+		           nullptr /* text len and text */, register_callback, this /* context */);
 	}
 
 private:
 	static void DNSSD_API register_callback (DNSServiceRef, DNSServiceFlags,
 	                                         DNSServiceErrorType error_code, const char * name,
-	                                         const char * /* service_type */,
-	                                         const char * /* domain */, void * context) {
+	                                         const char * /* regtype */, const char * /* domain */,
+	                                         void * context) {
 		auto c = static_cast<Service *> (context);
-		if (error_code == kDNSServiceErr_NoError) {
-			emit c->registered (name);
-		} else {
-			qCritical () << "DNSServiceRegister error [callback]:" << error_code;
+		if (has_error (error_code)) {
+			c->failure (error_code);
+			return;
 		}
+		emit c->registered (name);
 	}
 };
 
-// Name resolver query (internal)
-class Resolver : public QObject {
+/* Temporary structure use to represent a resolve query.
+ * Resolve query : from DNS_SD service id to hostname, port.
+ *
+ * A DnsPeer object is created empty, and owned by the Query.
+ * When finally filled, it is published.
+ * The browser should receive the reference and get ownership of the DnsPeer.
+ * If the query fails or succeeds, it then deletes itself.
+ * If the DnsPeer was not taken by the Browser, it will be deleted too.
+ */
+class Resolver : public DnsSocket {
 	Q_OBJECT
-	/* Temporary structure use to represent a resolve query.
-	 * Resolve query : from DNS_SD service id to address, name, port.
-	 *
-	 * Instances of this class are generated by a parent Browser.
-	 * They are child of the browser, and will delete themselves after use (or error), or be deleted
-	 * by the Browser if it dies.
-	 * At success, they trigger a slot in the Browser.
-	 *
-	 * Steps:
-	 * - Starting resolve connection.
-	 * - Resolve callback is called: start address lookup from hostname.
-	 * - Hostname lookup finished: choose address, emit resulting peer.
-	 *
-	 * Errors make the query fail, but do not abort.
-	 */
+
 private:
-	int hostname_lookup_id{-1}; // used to abort lookup on delete or error
-	Peer peer_info;             // info is gathered there at each step
+	DnsPeer * peer;
 
 signals:
-	void peer_complete (Peer);
+	void peer_resolved (DnsPeer *);
 
 public:
 	Resolver (uint32_t interface_index, const char * name, const char * regtype, const char * domain,
 	          QObject * parent = nullptr)
-	    : QObject (parent) {
-		peer_info.username = name;
-		auto dns_socket = DnsSocket::fromResolve (this, 0 /* flags */, interface_index, name, regtype,
-		                                          domain, resolver_callback, this /* context */);
-		if (dns_socket != nullptr) {
-			connect (dns_socket, &DnsSocket::error, this, &Resolver::deleteLater);
-		} else {
-			deleteLater ();
-		}
-	}
-
-	~Resolver () {
-		if (hostname_lookup_id != -1)
-			QHostInfo::abortHostLookup (hostname_lookup_id);
+	    : DnsSocket (parent) {
+		peer = new DnsPeer (this);
+		peer->set_name (name);
+		init_with (DNSServiceResolve, 0 /* flags */, interface_index, name, regtype, domain,
+		           resolver_callback, this /* context */);
 	}
 
 private:
@@ -170,101 +220,78 @@ private:
 	                                         uint16_t port, uint16_t /* txt len */,
 	                                         const unsigned char * /* txt record */, void * context) {
 		auto c = static_cast<Resolver *> (context);
-		if (error_code == kDNSServiceErr_NoError) {
-			c->peer_info.port = qFromBigEndian (port); // To host byte order
-			c->peer_info.hostname = hostname;
-			c->hostname_lookup_id =
-			    QHostInfo::lookupHost (c->peer_info.hostname, c, SLOT (hostname_resolved (QHostInfo)));
-		} else {
-			qWarning () << "DNSServiceResolve error [callback]:" << error_code;
-			c->deleteLater ();
+		if (has_error (error_code)) {
+			c->failure (error_code);
+			return;
 		}
-	}
-
-private slots:
-	void hostname_resolved (QHostInfo host_info) {
-		hostname_lookup_id = -1;
-		if (host_info.error () == QHostInfo::NoError) {
-			auto addresses = host_info.addresses ();
-			if (addresses.isEmpty ())
-				qFatal ("QHostInfo returned empty list");
-			peer_info.address = addresses.first ();
-			emit peer_complete (peer_info);
-		} else {
-			qWarning () << "QHostInfo failed for" << host_info.hostName () << host_info.errorString ();
-		}
-		deleteLater ();
+		c->peer->set_port (qFromBigEndian (port)); // To host byte order
+		c->peer->set_hostname (hostname);
+		emit c->peer_resolved (c->peer);
+		c->deleteLater ();
 	}
 };
 
-/*
- * Service browser
+/* Browser object.
+ * Starts browsing at creation, stops at destruction.
+ * Emits added/removed signals to indicate changes to peer list.
+ *
+ * It owns DnsPeer objects representing discovered peers.
+ * DnsPeer objects will be destroyed when the peer disappears.
+ * They are all destroyed when the Browser dies.
  */
-class Browser : public QObject {
+class Browser : public DnsSocket {
 	Q_OBJECT
 
-	/* Browser object.
-	 * Starts browsing at creation, stops at destruction.
-	 * Emits added/removed signals to indicate changes to peer list.
-	 *
-	 * Errors are critical.
-	 * TODO expose them and handle them ?
-	 */
 private:
-	QSet<QString> discovered_peers;  // by name
-	const QString instance_username; // our username, to discard when browsed
+	const LocalDnsPeer * local_peer;
 
 signals:
-	void added (Peer);
-	void removed (QString);
+	void added (DnsPeer *);
 
 public:
-	Browser (const QString & username, const QString & service_name, QObject * parent = nullptr)
-	    : QObject (parent), instance_username (username) {
-		DnsSocket::fromBrowse (this, 0 /* flags */, 0 /* interface */, qUtf8Printable (service_name),
-		                       nullptr /* default domain */, browser_callback, this /* context */);
+	Browser (const LocalDnsPeer * local_peer, QObject * parent = nullptr)
+	    : DnsSocket (parent), local_peer (local_peer) {
+		init_with (DNSServiceBrowse, 0 /* flags */, 0 /* interface */,
+		           qUtf8Printable (Const::service_type), nullptr /* default domain */, browser_callback,
+		           this /* context */);
 	}
 
 private:
 	static void DNSSD_API browser_callback (DNSServiceRef, DNSServiceFlags flags,
 	                                        uint32_t interface_index, DNSServiceErrorType error_code,
-	                                        const char * name, const char * service_name,
+	                                        const char * name, const char * regtype,
 	                                        const char * domain, void * context) {
 		auto c = static_cast<Browser *> (context);
-		if (error_code == kDNSServiceErr_NoError) {
-			if (flags & kDNSServiceFlagsAdd) {
-				// Peer is added, find its contact info
-				auto r = new Resolver (interface_index, name, service_name, domain, c);
-				if (r != nullptr) {
-					connect (r, &Resolver::peer_complete, c, &Browser::resolved_peer_added);
-				}
-			} else {
-				// Peer is removed
-				auto username = QString (name);
-				if (username != c->instance_username) {
-					auto it = c->discovered_peers.find (username);
-					if (it != c->discovered_peers.end ()) {
-						c->discovered_peers.erase (it);
-						emit c->removed (username);
-					} else {
-						qWarning () << "Browser: remove: peer does not exists:" << username;
-					}
-				}
-			}
+		if (has_error (error_code)) {
+			c->failure (error_code);
+			return;
+		}
+		if (flags & kDNSServiceFlagsAdd) {
+			// Peer is added, find its contact info
+			auto r = new Resolver (interface_index, name, regtype, domain, c);
+			connect (r, &Resolver::peer_resolved, c, &Browser::peer_resolved);
+			connect (r, &Resolver::error,
+			         [](const QString & msg) { qWarning () << "Browse: resolve aborted:" << msg; });
 		} else {
-			qCritical () << "DNSServiceBrowse error [callback]:" << error_code;
+			// Peer is removed
+			c->delete_peer_by_name (name);
 		}
 	}
 
 private slots:
-	void resolved_peer_added (Peer peer) {
-		if (peer.username != instance_username) {
-			if (not discovered_peers.contains (peer.username)) {
-				discovered_peers.insert (peer.username);
-				emit added (peer);
-			} else {
-				qWarning () << "Browser: add: peer already exists:" << peer.username;
-			}
+	void peer_resolved (DnsPeer * peer) {
+		if (local_peer->get_name () != peer->get_name ()) {
+			peer->setParent (this); // Take ownership
+			emit added (peer);
+			// TODO find if already exist and update ?
+		}
+	}
+
+private:
+	void delete_peer_by_name (const QString & name) {
+		for (auto dns_peer : findChildren<DnsPeer *> (QString (), Qt::FindDirectChildrenOnly)) {
+			if (dns_peer->get_name () == name)
+				dns_peer->deleteLater ();
 		}
 	}
 };
