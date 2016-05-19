@@ -6,6 +6,7 @@ sudo apt-get -y -q update
 sudo apt-get -y -q install \
 	upx-ucl \
 	qt5-default \
+	libqt5svg5 \
 	qt5-qmake \
 	libavahi-compat-libdnssd-dev
 

@@ -18,6 +18,7 @@ sudo apt-get -y -q update
 sudo apt-get -y -q install \
 	upx-ucl \
 	mxe-${MXE_TARGET}-qtbase \
+	mxe-${MXE_TARGET}-qtsvg \
 	mxe-${MXE_TARGET}-binutils
 
 # Redirect to right qmake / g++
