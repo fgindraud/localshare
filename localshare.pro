@@ -30,11 +30,16 @@ macx: { # Mac
 }
 win32: { # Win
 	# Provided by mDNSResponder (Bonjour windows service)
-	# May require custom LIBPATH/INCLUDEPATH
-	LIBS += -ldnssd
+
+	# These files should be extracted from mDNSResponder sources (not in git)
+	# See build/windows/requirement.sh
+	INCLUDEPATH += src/
+	HEADERS += src/dns_sd.h src/DLLStub.h
+	SOURCES += src/DLLStub.cpp
 }
 
 RESOURCES += resources/resources.qrc
 
 macx: ICON = resources/mac/icon.icns # Mac bundle icon
+win32: RC_FILE = resources/windows/resources.rc # Windows app icon
 

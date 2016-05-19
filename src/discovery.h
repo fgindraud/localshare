@@ -1,16 +1,16 @@
 #ifndef DISCOVERY_H
 #define DISCOVERY_H
 
-#include <QSocketNotifier>
 #include <QHostInfo>
 #include <QSet>
+#include <QSocketNotifier>
 #include <QtEndian>
 
-#include <utility> // std::forward
 #include <dns_sd.h>
+#include <utility> // std::forward
 
-#include "localshare.h"
 #include "compatibility.h"
+#include "localshare.h"
 
 namespace Discovery {
 
@@ -106,9 +106,10 @@ public:
 	}
 
 private:
-	static void register_callback (DNSServiceRef, DNSServiceFlags, DNSServiceErrorType error_code,
-	                               const char * name, const char * /* service_type */,
-	                               const char * /* domain */, void * context) {
+	static void DNSSD_API register_callback (DNSServiceRef, DNSServiceFlags,
+	                                         DNSServiceErrorType error_code, const char * name,
+	                                         const char * /* service_type */,
+	                                         const char * /* domain */, void * context) {
 		auto c = static_cast<Service *> (context);
 		if (error_code == kDNSServiceErr_NoError) {
 			emit c->registered (name);
@@ -163,10 +164,11 @@ public:
 	}
 
 private:
-	static void resolver_callback (DNSServiceRef, DNSServiceFlags, uint32_t /* interface */,
-	                               DNSServiceErrorType error_code, const char * /* fullname */,
-	                               const char * hostname, uint16_t port, uint16_t /* txt len */,
-	                               const unsigned char * /* txt record */, void * context) {
+	static void DNSSD_API resolver_callback (DNSServiceRef, DNSServiceFlags, uint32_t /* interface */,
+	                                         DNSServiceErrorType error_code,
+	                                         const char * /* fullname */, const char * hostname,
+	                                         uint16_t port, uint16_t /* txt len */,
+	                                         const unsigned char * /* txt record */, void * context) {
 		auto c = static_cast<Resolver *> (context);
 		if (error_code == kDNSServiceErr_NoError) {
 			c->peer_info.port = qFromBigEndian (port); // To host byte order
@@ -224,9 +226,10 @@ public:
 	}
 
 private:
-	static void browser_callback (DNSServiceRef, DNSServiceFlags flags, uint32_t interface_index,
-	                              DNSServiceErrorType error_code, const char * name,
-	                              const char * service_name, const char * domain, void * context) {
+	static void DNSSD_API browser_callback (DNSServiceRef, DNSServiceFlags flags,
+	                                        uint32_t interface_index, DNSServiceErrorType error_code,
+	                                        const char * name, const char * service_name,
+	                                        const char * domain, void * context) {
 		auto c = static_cast<Browser *> (context);
 		if (error_code == kDNSServiceErr_NoError) {
 			if (flags & kDNSServiceFlagsAdd) {

@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -xue
 
-cp localshare localshare-linux
+# Pack binary
+strip localshare
+upx -9 localshare
+
+cp localshare localshare-linux-$(uname -m)
 
 set +xue
