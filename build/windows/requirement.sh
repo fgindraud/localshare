@@ -15,7 +15,7 @@ sudo apt-key adv --keyserver keyserver.ubuntu.com \
 
 # Install cross compiled Qt and binutils (and upx for binary compression)
 sudo apt-get -y -q update
-sudo apt-get -y install \
+sudo apt-get -y -q install \
 	upx-ucl \
 	mxe-${MXE_TARGET}-qtbase \
 	mxe-${MXE_TARGET}-binutils

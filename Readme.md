@@ -20,8 +20,11 @@ Requires Qt >= 5.2, Bonjour support (see below) and c++11 compiler support.
 Details about dependencies can be found in the `build/*/requirement.sh` files.
 
 Binaries can be found in the release section.
-They are standalone (icons & such are included), but they do not include Qt or Bonjour libraries.
-The mac binary assumes a homebrew qt5 install, while the windows one has a statically compiled qt5.
+They are mostly standalone:
+- Icons are included for each platform.
+- Linux: uses the local Qt and Avahi libraries.
+- Mac OSX: assumes a homebrew install of Qt5 (Bonjour support is native).
+- Windows: shipped with a statically linked Qt5, requires the mDNSResponder on the system.
 
 Localshare may store some settings at user level (storage depends on the system, see the QtCore/QSettings documentation).
 

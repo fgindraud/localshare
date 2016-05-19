@@ -3,7 +3,7 @@ set -xue
 
 # Get deps (Qt, Bonjour, upx for binary packing)
 sudo apt-get -y -q update
-sudo apt-get -y install \
+sudo apt-get -y -q install \
 	upx-ucl \
 	qt5-default \
 	qt5-qmake \

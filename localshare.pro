@@ -18,7 +18,7 @@ HEADERS += src/localshare.h \
 			src/window.h
 SOURCES += src/main.cpp
 
-QT += core network widgets
+QT += core network widgets svg
 
 # DNS service discovery library
 unix:!macx: { # Linux
