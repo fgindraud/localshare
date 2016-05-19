@@ -5,30 +5,31 @@
 #include <QPersistentModelIndex>
 #include <algorithm>
 
+/* StructItem represent a viewable struct, of size elements.
+ * It is equivalent to a row of QAbstractItemModel.
+ * Most functions of QAbstractItemModel have equivalents in this class.
+ * However they only take the column index as position.
+ * Column index is always contained in [0, size[.
+ * Default values from QAbstractItemModel are used whenever possible.
+ *
+ * compare_data is used by sort to compare StructItems for sort.
+ *
+ * Drop setup:
+ * - set drop flag.
+ * - canDropMimeData can restrict drop by checking mimetype/action.
+ * - dropMimeData performs the drop.
+ */
 class StructItem : public QObject {
 	Q_OBJECT
 
-	/* StructItem represent a viewable struct, of size elements.
-	 * It is equivalent to a row of QAbstractItemModel.
-	 * Most functions of QAbstractItemModel have equivalents in this class.
-	 * However they only take the column index as position.
-	 * Column index is always contained in [0, size[.
-	 * Default values from QAbstractItemModel are used whenever possible.
-	 *
-	 * compare_data is used by sort to compare StructItems for sort.
-	 *
-	 * Drop setup:
-	 * - set drop flag.
-	 * - canDropMimeData can restrict drop by checking mimetype/action.
-	 * - dropMimeData performs the drop.
-	 */
 public:
 	const int size;
 
 signals:
-	// Equivalent to QObject::destroyed
-	// useful as dynamic_cast QObject -> StructItem fails during destruction
-	// so catching QObject::destroyed is not sufficient
+	/* Equivalent to QObject::destroyed.
+	 * Useful as dynamic_cast QObject -> StructItem fails during destruction.
+	 * Catching QObject::destroyed is not sufficient.
+	 */
 	void being_destroyed (StructItem * item);
 
 	// Emit when data has changed in columns [from, to] or [from, from] if to=-1
@@ -72,17 +73,17 @@ public:
 	}
 };
 
+/* Represent a list of structs as a 2d model.
+ *
+ * We derive from QAbstractItemModel to properly support TreeViews.
+ * Valid indexes are child of root in (0,size()) x (0, struct_size).
+ *
+ * Deleting a StructItem will remove it from the model.
+ * Adding a StructItem multiple times is an error.
+ */
 class StructItemModel : public QAbstractItemModel {
 	Q_OBJECT
 
-	/* Represent a list of structs as a 2d model.
-	 *
-	 * We derive from QAbstractItemModel to properly support TreeViews.
-	 * Valid indexes are child of root in (0,size()) x (0, struct_size).
-	 *
-	 * Deleting a StructItem will remove it from the model.
-	 * Adding a StructItem multiple times is an error.
-	 */
 private:
 	// StructItem are not owned
 	QList<StructItem *> item_list;

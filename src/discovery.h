@@ -129,13 +129,56 @@ protected:
 		deleteLater ();
 	}
 
-	virtual QString error_string (Error e) {
+	virtual QString error_string (Error e) const {
 		switch (e) {
 		case kDNSServiceErr_NoError:
 			return tr ("No error");
-		// TODO more, and add in subclasses
+		case kDNSServiceErr_NoSuchName:
+			return tr ("Internal error: No such name");
+		case kDNSServiceErr_NoMemory:
+			return tr ("Out of memory");
+		case kDNSServiceErr_BadParam:
+			return tr ("API error: Bad parameter");
+		case kDNSServiceErr_BadReference:
+			return tr ("API error: Bad DNSServiceRef");
+		case kDNSServiceErr_BadState:
+			return tr ("Internal error: Bad state");
+		case kDNSServiceErr_BadFlags:
+			return tr ("API error: Bad flags");
+		case kDNSServiceErr_Unsupported:
+			return tr ("Internal error: Unsupported operation");
+		case kDNSServiceErr_NotInitialized:
+			return tr ("API error: DNSServiceRef is not initialized");
+		case kDNSServiceErr_AlreadyRegistered:
+			return tr ("Service is already registered");
+		case kDNSServiceErr_NameConflict:
+			return tr ("Service name is already taken");
+		case kDNSServiceErr_Invalid:
+			return tr ("API error: Invalid data");
+		case kDNSServiceErr_Firewall:
+			return tr ("Firewall");
+		case kDNSServiceErr_Incompatible:
+			return tr ("Localshare incompatible with local Bonjour service");
+		case kDNSServiceErr_BadInterfaceIndex:
+			return tr ("API error: Bad interface index");
+		case kDNSServiceErr_Refused:
+			return tr ("kDNSServiceErr_Refused");
+		case kDNSServiceErr_NoSuchRecord:
+			return tr ("kDNSServiceErr_NoSuchRecord");
+		case kDNSServiceErr_NoAuth:
+			return tr ("kDNSServiceErr_NoAuth");
+		case kDNSServiceErr_NoSuchKey:
+			return tr ("The key does not exist in the TXT record");
+		case kDNSServiceErr_NATTraversal:
+			return tr ("kDNSServiceErr_NATTraversal");
+		case kDNSServiceErr_DoubleNAT:
+			return tr ("kDNSServiceErr_DoubleNAT");
+		case kDNSServiceErr_BadTime:
+			return tr ("kDNSServiceErr_BadTime");
+		case -65563: // kDNSServiceErr_ServiceNotRunning, only in recent versions
+			return tr ("Bonjour service in not running");
 		default:
-			return tr ("Unknown error");
+			return tr ("Unknown error code: %1");
 		}
 	}
 
@@ -160,10 +203,10 @@ class Service : public DnsSocket {
 	Q_OBJECT
 
 signals:
-	void registered (QString name);
+	void registered (void);
 
 public:
-	Service (const DnsPeer * local_peer, QObject * parent = nullptr) : DnsSocket (parent) {
+	Service (DnsPeer * local_peer) : DnsSocket (local_peer) {
 		init_with (DNSServiceRegister, 0 /* flags */, 0 /* any interface */,
 		           qUtf8Printable (local_peer->get_name ()), qUtf8Printable (Const::service_type),
 		           nullptr /* default domain */, nullptr /* default hostname */,
@@ -181,7 +224,18 @@ private:
 			c->failure (error_code);
 			return;
 		}
-		emit c->registered (name);
+		c->get_local_peer ()->set_name (name);
+		emit c->registered ();
+	}
+	
+	QString error_string (Error e) const Q_DECL_OVERRIDE {
+		return tr ("Service publisher: %1").arg (DnsSocket::error_string (e));
+	}
+
+	DnsPeer * get_local_peer (void) {
+		auto p = qobject_cast<DnsPeer *> (parent ());
+		Q_ASSERT (p);
+		return p;
 	}
 };
 
@@ -228,6 +282,10 @@ private:
 		c->peer->set_hostname (hostname);
 		emit c->peer_resolved (c->peer);
 		c->deleteLater ();
+	}
+
+	QString error_string (Error e) const Q_DECL_OVERRIDE {
+		return tr ("Service resolver: %1").arg (DnsSocket::error_string (e));
 	}
 };
 
@@ -293,6 +351,10 @@ private:
 			if (dns_peer->get_name () == name)
 				dns_peer->deleteLater ();
 		}
+	}
+	
+	QString error_string (Error e) const Q_DECL_OVERRIDE {
+		return tr ("Service browser: %1").arg (DnsSocket::error_string (e));
 	}
 };
 }

@@ -27,13 +27,21 @@
 #include <QToolBar>
 #include <QTreeView>
 
+/* Main window of application.
+ * Handles most high level GUI functions (the rest is provided by view/models).
+ * It also link together functionnality from peer list, transfer list, discovery.
+ *
+ * If tray icon is supported, closing it will just hide it, and clicking the tray icon toggle its
+ * visibility. Application can be closed by tray menu -> quit.
+ *
+ * The Transfer Server should be alive for the lifetime of Window.
+ *
+ * The discovery Service and Browser can die and be restarted.
+ *
+ */
 class Window : public QMainWindow {
 	Q_OBJECT
 
-	/* Main window of application.
-	 * If tray icon is supported, closing it will just hide it, and clicking the tray icon toggle its
-	 * visibility. Application can be closed by tray menu -> quit.
-	 */
 private:
 	Discovery::LocalDnsPeer * local_peer{nullptr};
 
@@ -54,8 +62,9 @@ public:
 		local_peer = new Discovery::LocalDnsPeer (server->port (), this);
 		connect (local_peer, &Discovery::DnsPeer::name_changed, this, &Window::set_window_title);
 
-		// Discovery setup
-		auto service = new Discovery::Service (local_peer, this);
+		/* Discovery publisher is children of local_peer.
+		 */
+		auto service = new Discovery::Service (local_peer);
 		connect (service, &Discovery::Service::registered, this, &Window::service_registered);
 
 		// Common actions
@@ -257,15 +266,16 @@ private slots:
 		setWindowTitle (tr ("Localshare - %1").arg (local_peer->get_username ()));
 	}
 
-	void service_registered (QString name) {
-		local_peer->set_name (name);
+	void service_registered (void) {
+		auto service = qobject_cast<Discovery::Service *> (sender ());
+		Q_ASSERT (service);
 
 		status_message->setText (tr ("Localshare running on port %1 with username %2")
 		                             .arg (local_peer->get_port ())
 		                             .arg (local_peer->get_username ()));
 
 		// Start browsing
-		auto browser = new Discovery::Browser (local_peer, this);
+		auto browser = new Discovery::Browser (local_peer, service);
 		connect (browser, &Discovery::Browser::added, this, &Window::new_discovered_peer);
 	}
 
@@ -307,7 +317,8 @@ private slots:
 	}
 
 	void request_upload (const Peer & peer, const QString & filepath) {
-		auto upload = new Transfer::Upload (peer, filepath, local_peer->get_username (), transfer_list_model);
+		auto upload =
+		    new Transfer::Upload (peer, filepath, local_peer->get_username (), transfer_list_model);
 		transfer_list_model->append (upload);
 	}
 

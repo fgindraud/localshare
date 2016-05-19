@@ -1,5 +1,5 @@
 CONFIG += c++11
-CONFIG += debug
+#CONFIG += debug
 
 TEMPLATE = app
 

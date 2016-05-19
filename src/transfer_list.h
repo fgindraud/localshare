@@ -4,34 +4,28 @@
 #include <QDebug>
 
 #include <QApplication>
-#include <QStyle>
-#include <QStyledItemDelegate>
-#include <QStyleOptionProgressBar>
 #include <QFlags>
+#include <QStyle>
+#include <QStyleOptionProgressBar>
+#include <QStyledItemDelegate>
 
-#include "style.h"
-#include "struct_item_model.h"
 #include "button_delegate.h"
+#include "struct_item_model.h"
+#include "style.h"
 
 namespace Transfer {
 
+/* Base transfer item class.
+ * Subclassed by upload or download.
+ */
 class Item : public StructItem {
 	Q_OBJECT
 
-	/* Base transfer item class.
-	 * Subclassed by upload or download.
-	 */
 public:
 	// Fields that are supported
 	enum Field { FilenameField, PeerField, SizeField, ProgressField, StatusField, NbFields };
 
-	/* Status can have buttons to interact with user (accept/abort transfer).
-	 * The View/Model system doesn't support buttons very easily.
-	 * The chosen approach is to have a new Role to tell which buttons are enabled.
-	 * This Role stores an OR of flags, and an invalid QVariant is treated as a 0 flag.
-	 * The buttons are manually painted on the view by a custom delegate.
-	 * The delegate also catches click events.
-	 */
+	// Buttons (see src/button_delegate.h)
 	enum Role { ButtonRole = ButtonDelegate::ButtonRole };
 	enum Button {
 		NoButton = 0x0,
@@ -49,12 +43,12 @@ public:
 };
 Q_DECLARE_OPERATORS_FOR_FLAGS (Item::Buttons);
 
+/* Transfer list model.
+ * Adds headers and dispatch button_clicked.
+ */
 class Model : public StructItemModel {
 	Q_OBJECT
 
-	/* Transfer list model.
-	 * Adds headers and dispatch button_clicked.
-	 */
 public:
 	Model (QObject * parent = nullptr) : StructItemModel (Item::NbFields, parent) {}
 
@@ -103,8 +97,9 @@ inline QString size_to_string (qint64 size) {
 	return QString ().setNum (num, 'f', 2) + suffixes[unit_idx];
 }
 
+/* Paints a progressbar for the Progress field.
+ */
 class ProgressBarDelegate : public QStyledItemDelegate {
-	// Handles the painting of a progress bar
 public:
 	ProgressBarDelegate (QObject * parent = nullptr) : QStyledItemDelegate (parent) {}
 
@@ -138,7 +133,7 @@ public:
 private:
 	void init_progress_bar_style (QStyleOptionProgressBar & option, const QStyleOption & from,
 	                              const QModelIndex & index) const {
-		option.QStyleOption::operator=(from); // Take palette, ..., AND rect
+		option.QStyleOption::operator= (from); // Take palette, ..., AND rect
 		option.minimum = 0;
 		option.maximum = 100;
 		option.progress = -1;
@@ -152,6 +147,8 @@ private:
 	}
 };
 
+/* Setup the ButtonDelegate buttons.
+ */
 class Delegate : public ButtonDelegate {
 public:
 	Delegate (QObject * parent = nullptr) : ButtonDelegate (parent) {

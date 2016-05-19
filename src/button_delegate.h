@@ -12,21 +12,26 @@
 
 #include "compatibility.h"
 
+/* Add support for ButtonRole by appending buttons to cells.
+ * Must have an "inner_delegate" that handles the content outside of buttons.
+ *
+ * The View/Model system doesn't support buttons very easily.
+ * The chosen approach is to have a new Role to tell which buttons are enabled.
+ * This Role stores an OR of flags, and an invalid QVariant is treated as a 0 flag.
+ * The buttons are manually painted on the view by a custom delegate.
+ * The delegate also catches click events.
+ *
+ * Buttons are placed on the right of each cell.
+ * Their order is fixed and determined by the supported_buttons list order.
+ * When drawn, buttons only take their sizeHint, and are vertically centered.
+ *
+ * sizeHint: their required size is added to inner_sizeHint to the right.
+ * paint: paint buttons from right to left, shaving space of the item.
+ * event: "paint" to get positions, then check rects.
+ */
 class ButtonDelegate : public QAbstractItemDelegate {
 	Q_OBJECT
 
-	/* Add support for ButtonRole by appending buttons to cells.
-	 * Must have an "inner_delegate" that handles the content outside of buttons.
-	 *
-	 * Buttons are placed on the right of each cell.
-	 * Their order is fixed and determined by the supported_buttons list order.
-	 * When drawn, buttons only take their sizeHint, and are vertically centered.
-	 *
-	 * sizeHint: their required size is added to inner_sizeHint to the right.
-	 * paint: paint buttons from right to left, shaving space of the item.
-	 * event: "paint" to get positions, then check rects.
-	 *
-	 */
 public:
 	enum Role { ButtonRole = Qt::UserRole }; // Custom role for buttons
 
