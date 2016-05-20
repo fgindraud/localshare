@@ -8,6 +8,8 @@
 #include <QStyle>
 #include <QStyleOptionProgressBar>
 #include <QStyledItemDelegate>
+#include <QTreeView>
+#include <QHeaderView>
 
 #include "button_delegate.h"
 #include "struct_item_model.h"
@@ -160,6 +162,36 @@ public:
 		                  << SupportedButton{Item::ChangeDownloadPathButton,
 		                                     Icon::change_download_path ()}
 		                  << SupportedButton{Item::DeleteButton, Icon::delete_transfer ()};
+	}
+};
+
+/* View, setup style and link to delegate.
+ */
+class View : public QTreeView {
+private:
+	Delegate * delegate{nullptr};
+
+public:
+	View (QWidget * parent = nullptr) : QTreeView (parent) {
+		setAlternatingRowColors (true);
+		setRootIsDecorated (false);
+		setSelectionBehavior (QAbstractItemView::SelectRows);
+		setSelectionMode (QAbstractItemView::NoSelection);
+		setSortingEnabled (true);
+		setMouseTracking (true);
+
+		delegate = new Delegate (this);
+		setItemDelegate (delegate);
+	}
+
+	void setModel (Model * model) {
+		QTreeView::setModel (model);
+		connect (delegate, &Delegate::button_clicked, model, &Model::button_clicked);
+
+		auto h = header ();
+		h->setStretchLastSection (false);
+		h->setSectionResizeMode (QHeaderView::ResizeToContents);
+		h->setSectionResizeMode (Item::ProgressField, QHeaderView::Stretch);
 	}
 };
 }

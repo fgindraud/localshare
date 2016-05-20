@@ -25,7 +25,6 @@
 #include <QStatusBar>
 #include <QSystemTrayIcon>
 #include <QToolBar>
-#include <QTreeView>
 
 /* Main window of application.
  * Handles most high level GUI functions (the rest is provided by view/models).
@@ -91,20 +90,8 @@ public:
 
 		// Peer table
 		{
-			auto view = new QTreeView (splitter);
-			view->setAlternatingRowColors (true);
-			view->setRootIsDecorated (false);
-			view->setAcceptDrops (true);
-			view->setDropIndicatorShown (true);
-			view->setSelectionBehavior (QAbstractItemView::SelectRows);
-			view->setSelectionMode (QAbstractItemView::ExtendedSelection);
-			view->setSortingEnabled (true);
-			view->setMouseTracking (true);
+			auto view = new PeerList::View (splitter);
 			peer_list_view = view;
-			// TODO preset columns width
-
-			auto delegate = new PeerList::Delegate (view);
-			view->setItemDelegate (delegate);
 
 			auto model = new PeerList::Model (view);
 			view->setModel (model);
@@ -114,30 +101,14 @@ public:
 			         [=](const QItemSelection & selection) {
 				         action_send->setEnabled (!selection.isEmpty ());
 				       });
-			connect (delegate, &PeerList::Delegate::button_clicked, model,
-			         &PeerList::Model::button_clicked);
 		}
 
 		// Transfer table
 		{
-			auto view = new QTreeView (splitter);
-			view->setAlternatingRowColors (true);
-			view->setRootIsDecorated (false);
-			view->setSelectionBehavior (QAbstractItemView::SelectRows);
-			view->setSelectionMode (QAbstractItemView::NoSelection);
-			view->setSortingEnabled (true);
-			view->setMouseTracking (true);
-			// TODO preset columns width
-
-			auto delegate = new Transfer::Delegate (view);
-			view->setItemDelegate (delegate);
-
+			auto view = new Transfer::View (splitter);
 			auto model = new Transfer::Model (view);
 			view->setModel (model);
 			transfer_list_model = model;
-
-			connect (delegate, &Transfer::Delegate::button_clicked, model,
-			         &Transfer::Model::button_clicked);
 		}
 
 		// System tray
@@ -215,12 +186,7 @@ public:
 			auto about = new QAction (tr ("&About Localshare"), help);
 			about->setMenuRole (QAction::AboutRole);
 			about->setStatusTip (tr ("Information about Localshare"));
-			connect (about, &QAction::triggered, [=] {
-				QMessageBox::about (this, tr ("About Localshare"),
-				                    tr ("Localshare v%1 is a small file sharing app for the local network.")
-				                        .arg (Const::app_version));
-				// TODO improve description
-			});
+			connect (about, &QAction::triggered, this, &Window::show_about);
 
 			help->addAction (about_qt);
 			help->addAction (about);
@@ -280,13 +246,8 @@ private slots:
 	}
 
 	void tray_activated (QSystemTrayIcon::ActivationReason reason) {
-		switch (reason) {
-		case QSystemTrayIcon::DoubleClick: // Only double click
-			setVisible (!isVisible ());      // Toggle window visibility
-			break;
-		default:
-			break;
-		}
+		if (reason == QSystemTrayIcon::DoubleClick)
+			setVisible (!isVisible ()); // Toggle window visibility
 	}
 
 	void action_send_clicked (void) {
@@ -325,6 +286,36 @@ private slots:
 	void incoming_connection (QAbstractSocket * connection) {
 		auto download = new Transfer::Download (connection);
 		transfer_list_model->append (download);
+	}
+
+	void show_about (void) {
+		QMessageBox::about (
+		    this, tr ("About Localshare"),
+		    tr ("<p>Localshare v%1 is a small file sharing app for the local network.</p>"
+
+		        "<p>It is designed to easily send files to peers across the local network. "
+		        "It can be viewed as a netcat with auto discovery of peers and a nice interface. "
+		        "Drag & drop a file on a peer, "
+		        "or select peers and click on send to initiate a transfer. "
+		        "It also supports manually adding peers by ip/hostname/port, "
+		        "but this will not work if the destination is behind firewalls.</p>"
+
+		        "<p>Be careful of the automatic download option. "
+		        "It prevents you from rejecting unwanted file offers, "
+		        "and could allow attackers to fill your disk. "
+		        "As a general rule, be careful if you use Localshare on a public network.</p>"
+
+		        "<p>Without automatic download, you must accept each transfer manually. "
+		        "Before accepting, you can change the destination by clicking the directory icon. "
+		        "You can also change the default destination in the preferences.</p>"
+
+		        "<p>If using the system tray icon, Localshare acts like a small daemon. "
+		        "Hiding/closing the window only reduces it to the system tray. "
+		        "It can be useful for long transfers, but do not forget to close it !</p>"
+
+		        "<p>Copyright (C) 2016 François Gindraud.</p>"
+		        "<p><a href='https://github.com/lereldarion/qt-localshare'>Github Link</a></p>")
+		        .arg (Const::app_version));
 	}
 };
 

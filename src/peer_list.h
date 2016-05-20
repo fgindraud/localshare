@@ -7,6 +7,8 @@
 #include <QMimeData>
 #include <QSpinBox>
 #include <QStyledItemDelegate>
+#include <QTreeView>
+#include <QHeaderView>
 #include <QUrl>
 #include <limits>
 
@@ -273,6 +275,38 @@ public:
 	Delegate (QObject * parent = nullptr) : ButtonDelegate (parent) {
 		set_inner_delegate (new InnerDelegate (this));
 		supported_buttons << SupportedButton{Item::DeleteButton, Icon::delete_peer ()};
+	}
+};
+
+/* View, setup style and link to delegate.
+ */
+class View : public QTreeView {
+private:
+	Delegate * delegate{nullptr};
+
+public:
+	View (QWidget * parent = nullptr) : QTreeView (parent) {
+		setAlternatingRowColors (true);
+		setRootIsDecorated (false);
+		setAcceptDrops (true);
+		setDropIndicatorShown (true);
+		setSelectionBehavior (QAbstractItemView::SelectRows);
+		setSelectionMode (QAbstractItemView::ExtendedSelection);
+		setSortingEnabled (true);
+		setMouseTracking (true);
+
+		delegate = new Delegate (this);
+		setItemDelegate (delegate);
+	}
+
+	void setModel (Model * model) {
+		QTreeView::setModel (model);
+		connect (delegate, &Delegate::button_clicked, model, &Model::button_clicked);
+		
+		auto h = header ();
+		h->setStretchLastSection (false);
+		h->setSectionResizeMode (QHeaderView::ResizeToContents);
+		h->setSectionResizeMode (Item::UsernameField, QHeaderView::Stretch);
 	}
 };
 }
