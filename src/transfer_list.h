@@ -191,6 +191,9 @@ public:
 		h->setSectionResizeMode (QHeaderView::ResizeToContents);
 		h->setSectionResizeMode (Item::ProgressField, QHeaderView::Stretch);
 	}
+
+private:
+	using QTreeView::setModel;
 };
 }
 

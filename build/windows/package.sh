@@ -5,6 +5,6 @@ set -xue
 strip release/localshare.exe
 upx -9 release/localshare.exe
 
-cp release/localshare.exe localshare-windows32.exe
+cp release/localshare.exe localshare-windows-${BITS}.exe
 
 set +xue

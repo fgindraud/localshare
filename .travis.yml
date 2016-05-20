@@ -2,16 +2,26 @@ language: cpp
 
 matrix:
    include:
-      - env: PLATFORM='linux'
+      - env: PLATFORM='linux' RELEASE='true'
         os: linux
         dist: trusty
         sudo: required
 
-      - env: PLATFORM='mac'
+      - env: PLATFORM='linux' RELEASE='false' QMAKESPEC='linux-clang'
+        os: linux
+        dist: trusty
+        sudo: required
+
+      - env: PLATFORM='mac' RELEASE='true'
         os: osx
         osx_image: xcode7.2
 
-      - env: PLATFORM='windows'
+      - env: PLATFORM='windows' RELEASE='true' BITS='32'
+        os: linux
+        dist: trusty
+        sudo: required
+
+      - env: PLATFORM='windows' RELEASE='true' BITS='64'
         os: linux
         dist: trusty
         sudo: required
@@ -38,3 +48,4 @@ deploy:
    on:
       repo: lereldarion/qt-localshare
       tags: true
+      condition: $RELEASE = true

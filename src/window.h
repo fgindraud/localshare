@@ -85,16 +85,16 @@ private slots:
 		// Restart all dead services
 		if (!service) {
 			service = new Discovery::Service (local_peer);
-			connect (service, &Discovery::Service::registered, this,
+			connect (service.data (), &Discovery::Service::registered, this,
 			         &RestartableDiscovery::message_changed);
-			connect (service, &Discovery::Service::being_destroyed, this,
+			connect (service.data (), &Discovery::Service::being_destroyed, this,
 			         &RestartableDiscovery::append_error);
 		}
 		if (!browser) {
-			auto browser = new Discovery::Browser (local_peer);
-			connect (browser, &Discovery::Browser::added, this,
+			browser = new Discovery::Browser (local_peer);
+			connect (browser.data (), &Discovery::Browser::added, this,
 			         &RestartableDiscovery::new_discovered_peer);
-			connect (browser, &Discovery::Browser::being_destroyed, this,
+			connect (browser.data (), &Discovery::Browser::being_destroyed, this,
 			         &RestartableDiscovery::append_error);
 		}
 		clear_errors ();

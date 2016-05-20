@@ -308,6 +308,9 @@ public:
 		h->setSectionResizeMode (QHeaderView::ResizeToContents);
 		h->setSectionResizeMode (Item::UsernameField, QHeaderView::Stretch);
 	}
+
+private:
+	using QTreeView::setModel;
 };
 }
 

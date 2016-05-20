@@ -2,7 +2,13 @@
 set -xue
 
 # Target is 32b
-MXE_TARGET=i686-w64-mingw32.static
+if [ "$BITS" = 32 ]; then
+	MXE_TARGET=i686-w64-mingw32.static
+elif [ "$BITS" = 64 ]; then
+	MXE_TARGET=x86-64-w64-mingw32.static
+else
+	exit 1;
+fi
 MXE_DIR=/usr/lib/mxe
 
 ### Get QT and binutils ###
