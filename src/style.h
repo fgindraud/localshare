@@ -1,9 +1,9 @@
 #ifndef STYLE_H
 #define STYLE_H
 
+#include <QApplication>
 #include <QIcon>
 #include <QStyle>
-#include <QApplication>
 
 namespace Icon {
 // helper
@@ -16,12 +16,20 @@ inline QIcon app (void) {
 	return QIcon (":/icon.svg");
 }
 
+// Warning
+inline QIcon warning (void) {
+	return from_style (QStyle::SP_MessageBoxWarning);
+}
+
 // Appear in toolbar
 inline QIcon send (void) {
 	return QIcon (":/send_file.svg");
 }
 inline QIcon add_peer (void) {
 	return QIcon (":/peer_add.svg");
+}
+inline QIcon restart_discovery (void) {
+	return QIcon (":/restart_discovery.svg");
 }
 
 // Optional

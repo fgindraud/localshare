@@ -1,8 +1,6 @@
 #ifndef TRANSFER_LIST_H
 #define TRANSFER_LIST_H
 
-#include <QDebug>
-
 #include <QApplication>
 #include <QFlags>
 #include <QStyle>

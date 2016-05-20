@@ -110,7 +110,7 @@ private:
 Q_DECLARE_OPERATORS_FOR_FLAGS (Item::Buttons);
 
 /* Item coming from Discovery.
- *
+ * TODO improve, handle DnsPeer updates
  */
 class DiscoveryItem : public Item {
 	Q_OBJECT
@@ -259,7 +259,7 @@ public:
 				spin_box->setMaximum (int(L::max ()));
 			}
 		}
-		return widget;
+		return widget; // TODO nice editor options
 	}
 
 	void updateEditorGeometry (QWidget * editor, const QStyleOptionViewItem & option,

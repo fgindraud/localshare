@@ -21,10 +21,126 @@
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
+#include <QPointer>
+#include <QPushButton>
 #include <QSplitter>
 #include <QStatusBar>
 #include <QSystemTrayIcon>
 #include <QToolBar>
+
+/* RestartableDiscovery system.
+ * It allows to dynamically start the discovery subsystem.
+ *
+ * Browser and Service are (almost) independent.
+ * Browser depends on the service instance name.
+ * This name is preset in local_peer, and may change after registration.
+ * Thankfully Browser does not need to restart, as the name is only used for filtering.
+ *
+ * This widget acts as a Status Bar.
+ * It normally displays the server port and the registration status.
+ * In case of errors, it grows with a big warning icon and a restart button.
+ * This button will clear errors and restart all dead services.
+ * Service and Browser will emit being_destroyed on destruction, with a possible error.
+ */
+class RestartableDiscovery : public QStatusBar {
+	Q_OBJECT
+
+private:
+	Discovery::LocalDnsPeer * local_peer;
+
+	QPointer<Discovery::Service> service;
+	QPointer<Discovery::Browser> browser;
+
+	QString current_errors{"Init"};
+	QLabel * warning_symbol{nullptr};
+	QLabel * message{nullptr};
+	QPushButton * restart{nullptr};
+
+signals:
+	void new_discovered_peer (Discovery::DnsPeer * peer);
+
+public:
+	RestartableDiscovery (Discovery::LocalDnsPeer * local_peer, QWidget * parent = nullptr)
+	    : QStatusBar (parent), local_peer (local_peer) {
+		// Create widgets of status bar
+		warning_symbol = new QLabel (this);
+		warning_symbol->setPixmap (
+		    Icon::warning ().pixmap (style ()->pixelMetric (QStyle::PM_MessageBoxIconSize)));
+		addWidget (warning_symbol);
+
+		message = new QLabel (this);
+		addWidget (message);
+
+		restart = new QPushButton (tr ("Restart discovery ?"), this);
+		restart->setIcon (Icon::restart_discovery ());
+		addWidget (restart);
+		connect (restart, &QPushButton::clicked, this, &RestartableDiscovery::start_services);
+
+		// Start services for the first time
+		start_services ();
+	}
+
+private slots:
+	void start_services (void) {
+		// Restart all dead services
+		if (!service) {
+			service = new Discovery::Service (local_peer);
+			connect (service, &Discovery::Service::registered, this,
+			         &RestartableDiscovery::message_changed);
+			connect (service, &Discovery::Service::being_destroyed, this,
+			         &RestartableDiscovery::append_error);
+		}
+		if (!browser) {
+			auto browser = new Discovery::Browser (local_peer);
+			connect (browser, &Discovery::Browser::added, this,
+			         &RestartableDiscovery::new_discovered_peer);
+			connect (browser, &Discovery::Browser::being_destroyed, this,
+			         &RestartableDiscovery::append_error);
+		}
+		clear_errors ();
+	}
+
+	void message_changed (void) { message->setText (make_status_message () + current_errors); }
+
+	void append_error (const QString & error) {
+		if (error.isEmpty ())
+			return; // ignore
+		if (current_errors.isEmpty ()) {
+			insertWidget (0, warning_symbol);
+			warning_symbol->show ();
+			addWidget (restart);
+			restart->show ();
+		}
+		current_errors += "\n" + error;
+		message_changed ();
+	}
+
+	void clear_errors (void) {
+		if (!current_errors.isEmpty ()) {
+			removeWidget (warning_symbol);
+			removeWidget (restart);
+			current_errors.clear ();
+			message_changed ();
+		}
+	}
+
+private:
+	QString make_status_message (void) const {
+		if (service) {
+			if (service->is_registered ()) {
+				return tr ("Localshare running on port %1 and registered with username \"%2\".")
+				    .arg (local_peer->get_port ())
+				    .arg (local_peer->get_username ());
+			} else {
+				return tr ("Localshare running on port %1 and registering...")
+				    .arg (local_peer->get_port ());
+			}
+		} else {
+			return tr ("Localshare running on port %1 and unregistered (error) !")
+			    .arg (local_peer->get_port ());
+		}
+	}
+};
 
 /* Main window of application.
  * Handles most high level GUI functions (the rest is provided by view/models).
@@ -34,9 +150,6 @@
  * visibility. Application can be closed by tray menu -> quit.
  *
  * The Transfer Server should be alive for the lifetime of Window.
- *
- * The discovery Service and Browser can die and be restarted.
- *
  */
 class Window : public QMainWindow {
 	Q_OBJECT
@@ -45,7 +158,8 @@ private:
 	Discovery::LocalDnsPeer * local_peer{nullptr};
 
 	QSystemTrayIcon * tray{nullptr};
-	QLabel * status_message{nullptr};
+
+	RestartableDiscovery * restartable_discovery{nullptr};
 
 	QAbstractItemView * peer_list_view{nullptr};
 	PeerList::Model * peer_list_model{nullptr};
@@ -53,18 +167,22 @@ private:
 
 public:
 	Window (QWidget * parent = nullptr) : QMainWindow (parent) {
-		// Start Server
-		auto server = new Transfer::Server (this);
-		connect (server, &Transfer::Server::new_connection, this, &Window::incoming_connection);
+		{
+			// Start Server
+			auto server = new Transfer::Server (this);
+			connect (server, &Transfer::Server::new_connection, this, &Window::incoming_connection);
 
-		// Local peer
-		local_peer = new Discovery::LocalDnsPeer (server->port (), this);
-		connect (local_peer, &Discovery::DnsPeer::name_changed, this, &Window::set_window_title);
+			// Local peer
+			local_peer = new Discovery::LocalDnsPeer (server->port (), this);
+			connect (local_peer, &Discovery::LocalDnsPeer::name_changed, this, &Window::set_window_title);
 
-		/* Discovery publisher is children of local_peer.
-		 */
-		auto service = new Discovery::Service (local_peer);
-		connect (service, &Discovery::Service::registered, this, &Window::service_registered);
+			// Restartable discovery system
+			restartable_discovery = new RestartableDiscovery (local_peer, this);
+			setStatusBar (restartable_discovery);
+
+			connect (restartable_discovery, &RestartableDiscovery::new_discovered_peer, this,
+			         &Window::new_discovered_peer);
+		}
 
 		// Common actions
 		auto action_send = new QAction (Icon::send (), tr ("&Send..."), this);
@@ -83,7 +201,7 @@ public:
 		action_quit->setStatusTip (tr ("Exits the application"));
 		connect (action_quit, &QAction::triggered, qApp, &QCoreApplication::quit);
 
-		// Main widget = splitter
+		// Main widget is a splitter
 		auto splitter = new QSplitter (Qt::Vertical, this);
 		splitter->setChildrenCollapsible (false);
 		setCentralWidget (splitter);
@@ -168,6 +286,8 @@ public:
 			connect (download_auto, &QAction::triggered,
 			         [=](bool checked) { Settings::DownloadAuto ().set (checked); });
 
+			// TODO change username
+
 			pref->addAction (use_tray);
 			pref->addSeparator ();
 			pref->addAction (download_path);
@@ -200,10 +320,6 @@ public:
 			tool_bar->addAction (action_add_peer);
 		}
 
-		// Status bar
-		status_message = new QLabel (tr ("Localshare starting up..."));
-		statusBar ()->addWidget (status_message);
-
 		set_window_title ();
 		restoreGeometry (Settings::Geometry ().get ());
 		restoreState (Settings::WindowState ().get ());
@@ -232,19 +348,6 @@ private slots:
 		setWindowTitle (tr ("Localshare - %1").arg (local_peer->get_username ()));
 	}
 
-	void service_registered (void) {
-		auto service = qobject_cast<Discovery::Service *> (sender ());
-		Q_ASSERT (service);
-
-		status_message->setText (tr ("Localshare running on port %1 with username %2")
-		                             .arg (local_peer->get_port ())
-		                             .arg (local_peer->get_username ()));
-
-		// Start browsing
-		auto browser = new Discovery::Browser (local_peer, service);
-		connect (browser, &Discovery::Browser::added, this, &Window::new_discovered_peer);
-	}
-
 	void tray_activated (QSystemTrayIcon::ActivationReason reason) {
 		if (reason == QSystemTrayIcon::DoubleClick)
 			setVisible (!isVisible ()); // Toggle window visibility
@@ -265,6 +368,8 @@ private slots:
 		}
 	}
 
+	// Peer creation
+
 	void new_manual_peer (void) {
 		auto item = new PeerList::ManualItem (peer_list_model);
 		connect (item, &PeerList::Item::request_upload, this, &Window::request_upload);
@@ -277,6 +382,8 @@ private slots:
 		peer_list_model->append (item);
 	}
 
+	// Transfer creation
+
 	void request_upload (const Peer & peer, const QString & filepath) {
 		auto upload =
 		    new Transfer::Upload (peer, filepath, local_peer->get_username (), transfer_list_model);
@@ -287,6 +394,8 @@ private slots:
 		auto download = new Transfer::Download (connection);
 		transfer_list_model->append (download);
 	}
+
+	// About message
 
 	void show_about (void) {
 		QMessageBox::about (

@@ -6,5 +6,6 @@
 	<file>peer_add.svg</file>
 	<file>peer_remove.svg</file>
 	<file>send_file.svg</file>
+	<file>restart_discovery.svg</file>
 </qresource>
 </RCC>

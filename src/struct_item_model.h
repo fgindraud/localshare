@@ -29,6 +29,10 @@ signals:
 	/* Equivalent to QObject::destroyed.
 	 * Useful as dynamic_cast QObject -> StructItem fails during destruction.
 	 * Catching QObject::destroyed is not sufficient.
+	 *
+	 * Note that when it is emitted, the object is only a StructItem for virtual functions.
+	 * The view may call data() and other stuff before final deletion.
+	 * So we must have default for each virtual function (pure virtual data sends errors sometimes).
 	 */
 	void being_destroyed (StructItem * item);
 
@@ -39,18 +43,14 @@ public:
 	StructItem (int size, QObject * parent = nullptr) : QObject (parent), size (size) {}
 	~StructItem () { emit being_destroyed (this); }
 
-public slots:
-	void deleteLater (void) {
-		emit being_destroyed (this);
-		QObject::deleteLater ();
-	}
-
 public:
 	// Read only interface
 	virtual Qt::ItemFlags flags (int /*field*/) const {
 		return Qt::ItemIsEnabled | Qt::ItemIsSelectable;
 	}
-	virtual QVariant data (int field, int role) const = 0;
+	virtual QVariant data (int /*field*/, int /*role*/) const {
+		return {}; // All invalid
+	};
 
 	// Edit interface
 	virtual bool setData (int /*field*/, const QVariant & /*value*/, int /*role*/) {

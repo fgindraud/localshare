@@ -51,7 +51,9 @@ Status
 ------
 
 Done:
-* mDNS browsing
+* local network discovery
+	* show errors to user
+	* ability to restart on failure
 * settings
 * interface:
 	* peer list:
@@ -67,6 +69,5 @@ Todo:
 	* improve perf
 	* directories
 	* pre filter stuff in Transfer::Server before showing it
-* discovery browser/service error handling (low probability)
 * get attention if minimized (modified icon / OS specific way)
 
