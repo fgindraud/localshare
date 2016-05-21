@@ -11,28 +11,34 @@
 #include "transfer_server.h"
 #include "transfer_upload.h"
 
-#include <QAction>
 #include <QApplication>
 #include <QCloseEvent>
-#include <QFileDialog>
-#include <QItemSelectionModel>
-#include <QLabel>
-#include <QMainWindow>
-#include <QMenu>
-#include <QMenuBar>
-#include <QMessageBox>
 #include <QPointer>
-#include <QPushButton>
-#include <QSplitter>
-#include <QStatusBar>
+
+#include <QItemSelectionModel>
 #include <QSystemTrayIcon>
+
+#include <QFileDialog>
+#include <QInputDialog>
+#include <QMessageBox>
+
+#include <QMainWindow>
+#include <QMenuBar>
+#include <QStatusBar>
 #include <QToolBar>
 
-/* RestartableDiscovery system.
- * It allows to dynamically start the discovery subsystem.
+#include <QAction>
+#include <QLabel>
+#include <QMenu>
+#include <QPushButton>
+#include <QSplitter>
+
+namespace Discovery {
+/* Discovery subsystem.
+ * It allows to dynamically manage discovery services.
  *
- * Browser and Service are (almost) independent.
- * Browser depends on the service instance name.
+ * Browser and ServiceRecord are (almost) independent.
+ * Browser depends on the service_record instance name.
  * This name is preset in local_peer, and may change after registration.
  * Thankfully Browser does not need to restart, as the name is only used for filtering.
  *
@@ -40,16 +46,16 @@
  * It normally displays the server port and the registration status.
  * In case of errors, it grows with a big warning icon and a restart button.
  * This button will clear errors and restart all dead services.
- * Service and Browser will emit being_destroyed on destruction, with a possible error.
+ * ServiceRecord and Browser will emit being_destroyed on destruction, with a possible error.
  */
-class RestartableDiscovery : public QStatusBar {
+class SubSystem : public QStatusBar {
 	Q_OBJECT
 
 private:
-	Discovery::LocalDnsPeer * local_peer;
+	LocalDnsPeer * local_peer;
 
-	QPointer<Discovery::Service> service;
-	QPointer<Discovery::Browser> browser;
+	QPointer<ServiceRecord> service_record;
+	QPointer<Browser> browser;
 
 	QString current_errors{"Init"};
 	QLabel * warning_symbol{nullptr};
@@ -60,8 +66,11 @@ signals:
 	void new_discovered_peer (Discovery::DnsPeer * peer);
 
 public:
-	RestartableDiscovery (Discovery::LocalDnsPeer * local_peer, QWidget * parent = nullptr)
-	    : QStatusBar (parent), local_peer (local_peer) {
+	SubSystem (LocalDnsPeer * local_peer_, QWidget * parent = nullptr)
+	    : QStatusBar (parent), local_peer (local_peer_) {
+		connect (local_peer, &LocalDnsPeer::desired_name_changed, this,
+		         &SubSystem::desired_name_changed);
+
 		// Create widgets of status bar
 		warning_symbol = new QLabel (this);
 		warning_symbol->setPixmap (
@@ -74,35 +83,38 @@ public:
 		restart = new QPushButton (tr ("Restart discovery ?"), this);
 		restart->setIcon (Icon::restart_discovery ());
 		addWidget (restart);
-		connect (restart, &QPushButton::clicked, this, &RestartableDiscovery::start_services);
+		connect (restart, &QPushButton::clicked, this, &SubSystem::start_services);
 
 		// Start services for the first time
 		start_services ();
 	}
 
 private slots:
+	void start_service_record (void) {
+		auto s = new ServiceRecord (local_peer);
+		connect (s, &ServiceRecord::registered, this, &SubSystem::message_changed);
+		connect (s, &ServiceRecord::being_destroyed, this, &SubSystem::append_error);
+		service_record = s;
+	}
+	void start_browser (void) {
+		auto b = new Browser (local_peer);
+		connect (b, &Browser::added, this, &SubSystem::new_discovered_peer);
+		connect (b, &Browser::being_destroyed, this, &SubSystem::append_error);
+		browser = b;
+	}
 	void start_services (void) {
 		// Restart all dead services
-		if (!service) {
-			service = new Discovery::Service (local_peer);
-			connect (service.data (), &Discovery::Service::registered, this,
-			         &RestartableDiscovery::message_changed);
-			connect (service.data (), &Discovery::Service::being_destroyed, this,
-			         &RestartableDiscovery::append_error);
-		}
-		if (!browser) {
-			browser = new Discovery::Browser (local_peer);
-			connect (browser.data (), &Discovery::Browser::added, this,
-			         &RestartableDiscovery::new_discovered_peer);
-			connect (browser.data (), &Discovery::Browser::being_destroyed, this,
-			         &RestartableDiscovery::append_error);
-		}
+		if (!service_record)
+			start_service_record ();
+		if (!browser)
+			start_browser ();
 		clear_errors ();
 	}
 
 	void message_changed (void) { message->setText (make_status_message () + current_errors); }
 
 	void append_error (const QString & error) {
+		// TODO correctly show "unregistered->registering->registered" when restarting ServiceRecord
 		if (error.isEmpty ())
 			return; // ignore
 		if (current_errors.isEmpty ()) {
@@ -124,10 +136,18 @@ private slots:
 		}
 	}
 
+	void desired_name_changed (void) {
+		// Kill current ServiceRecord and restart
+		auto record = service_record.data ();
+		Q_ASSERT (record != nullptr);
+		connect (record, &QObject::destroyed, this, &SubSystem::start_service_record);
+		record->deleteLater ();
+	}
+
 private:
 	QString make_status_message (void) const {
-		if (service) {
-			if (service->is_registered ()) {
+		if (service_record) {
+			if (service_record->is_registered ()) {
 				return tr ("Localshare running on port %1 and registered with username \"%2\".")
 				    .arg (local_peer->get_port ())
 				    .arg (local_peer->get_username ());
@@ -141,6 +161,7 @@ private:
 		}
 	}
 };
+}
 
 /* Main window of application.
  * Handles most high level GUI functions (the rest is provided by view/models).
@@ -156,10 +177,9 @@ class Window : public QMainWindow {
 
 private:
 	Discovery::LocalDnsPeer * local_peer{nullptr};
+	Discovery::SubSystem * discovery_subsystem{nullptr};
 
 	QSystemTrayIcon * tray{nullptr};
-
-	RestartableDiscovery * restartable_discovery{nullptr};
 
 	QAbstractItemView * peer_list_view{nullptr};
 	PeerList::Model * peer_list_model{nullptr};
@@ -173,14 +193,23 @@ public:
 			connect (server, &Transfer::Server::new_connection, this, &Window::incoming_connection);
 
 			// Local peer
-			local_peer = new Discovery::LocalDnsPeer (server->port (), this);
-			connect (local_peer, &Discovery::LocalDnsPeer::name_changed, this, &Window::set_window_title);
+			using Discovery::LocalDnsPeer;
+			local_peer = new LocalDnsPeer (Settings::Username ().get (), server->port (), this);
+			connect (local_peer, &LocalDnsPeer::service_name_changed, this, &Window::set_window_title);
+
+			connect (local_peer, &LocalDnsPeer::service_name_changed, [=] {
+				qDebug () << "name_changed" << local_peer->get_service_name ()
+				          << local_peer->get_username () << local_peer->get_desired_name ();
+			});
+			connect (local_peer, &LocalDnsPeer::desired_name_changed, [=] {
+				qDebug () << "desired_name_changed" << local_peer->get_service_name ()
+				          << local_peer->get_username () << local_peer->get_desired_name ();
+			});
 
 			// Restartable discovery system
-			restartable_discovery = new RestartableDiscovery (local_peer, this);
-			setStatusBar (restartable_discovery);
-
-			connect (restartable_discovery, &RestartableDiscovery::new_discovered_peer, this,
+			discovery_subsystem = new Discovery::SubSystem (local_peer, this);
+			setStatusBar (discovery_subsystem);
+			connect (discovery_subsystem, &Discovery::SubSystem::new_discovered_peer, this,
 			         &Window::new_discovered_peer);
 		}
 
@@ -286,12 +315,24 @@ public:
 			connect (download_auto, &QAction::triggered,
 			         [=](bool checked) { Settings::DownloadAuto ().set (checked); });
 
-			// TODO change username
+			auto change_username = new QAction (tr ("Change username..."), pref);
+			change_username->setStatusTip ("Set a new username in settings and discovery");
+			connect (change_username, &QAction::triggered, [=](void) {
+				Settings::Username setting;
+				QString new_username = QInputDialog::getText (
+				    this, tr ("Select new username"), tr ("Username:"), QLineEdit::Normal, setting.get ());
+				if (!new_username.isEmpty ()) {
+					setting.set (new_username);
+					local_peer->set_desired_username (new_username);
+				}
+			});
 
 			pref->addAction (use_tray);
 			pref->addSeparator ();
 			pref->addAction (download_path);
 			pref->addAction (download_auto);
+			pref->addSeparator ();
+			pref->addAction (change_username);
 		}
 
 		// Help menu

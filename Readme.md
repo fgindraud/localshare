@@ -4,8 +4,8 @@ LocalShare - Local file sharing application
 [![Build Status](https://travis-ci.org/lereldarion/qt-localshare.svg?branch=master)](https://travis-ci.org/lereldarion/qt-localshare)
 
 Small graphical application to send a file to a local peer.
-Peers on the local network are automatically discovered using Bonjour/Zeroconf.
-Distant peer can be manually added (but performing a transfer requires an open firewall on the destination).
+Peers on the local network are automatically discovered using Zeroconf mDNS service discovery.
+Distant peers can be manually added by filling ip and port (but performing a transfer requires an open firewall on the destination).
 
 Setup
 -----
@@ -22,14 +22,14 @@ Details about dependencies can be found in the `build/*/requirement.sh` files.
 Binaries can be found in the release section.
 They are mostly standalone:
 - Icons are included for each platform.
-- Linux: uses the local Qt and Avahi libraries.
+- Linux: uses the local Qt5 and Avahi Zeroconf libraries.
 - Mac OSX: assumes a homebrew install of Qt5 (Bonjour support is native).
-- Windows: shipped with a statically linked Qt5, requires the mDNSResponder on the system.
+- Windows: shipped with a statically linked Qt5, requires a working mDNSResponder install.
 
 Localshare may store some settings at user level (storage depends on the system, see the QtCore/QSettings documentation).
 
-mDNS browsing and resolution
-----------------------------
+Zeroconf mDNS support
+---------------------
 
 This application uses *Zeroconf* to find its peers on the local network.
 More precisely, it uses the *Bonjour* API to implement mDNS Service Discovery.
@@ -53,7 +53,7 @@ Status
 Done:
 * local network discovery
 	* show errors to user
-	* ability to restart on failure
+	* ability to restart on failure and change username
 * settings
 * interface:
 	* peer list:

@@ -9,6 +9,7 @@ elif [ "$BITS" = 64 ]; then
 else
 	exit 1;
 fi
+MXE_EXEC="${MXE_TARGET/x86-64/x86_64}"
 MXE_DIR=/usr/lib/mxe
 
 ### Get QT and binutils ###
