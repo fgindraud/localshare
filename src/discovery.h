@@ -77,23 +77,26 @@ public:
 };
 
 /* LocalDnsPeer represents the local instance of localshare.
- * TODO descr
+ *
+ * service_name is the current service name.
+ * If modified (
  */
 class LocalDnsPeer : public QObject {
 	Q_OBJECT
 
 private:
 	QString suffix;
-	QString desired_name; // TODO link to settings ?
+	Settings::Username requested_username;
 	QString service_name;
 	const quint16 port; // Host byte order
 
 signals:
-	void desired_name_changed (void);
+	void requested_service_name_changed (void);
+	void username_changed (void);
 	void service_name_changed (void);
 
 public:
-	LocalDnsPeer (const QString & initial_username, quint16 server_port, QObject * parent = nullptr)
+	LocalDnsPeer (quint16 server_port, QObject * parent = nullptr)
 	    : QObject (parent), port (server_port) {
 		// Suffix is hostname, or a random number stringified if not available
 		suffix = QHostInfo::localHostName ();
@@ -101,30 +104,31 @@ public:
 			qsrand (QTime::currentTime ().msec ());
 			suffix.setNum (qrand ());
 		}
-		// Initial requested username (and preset username that will probably be ok)
-		set_desired_username (initial_username);
-		set_service_name (service_name_of (initial_username, suffix));
 	}
 
-	QString get_desired_name (void) const { return desired_name; }
-	void set_desired_name (const QString & new_desired_name) {
-		if (desired_name != new_desired_name) {
-			desired_name = new_desired_name;
-			emit desired_name_changed ();
-		}
+	QString get_requested_username (void) { return requested_username.get (); }
+	QString get_requested_service_name (void) {
+		return service_name_of (get_requested_username (), suffix);
 	}
-	void set_desired_username (const QString & username) {
-		set_desired_name (service_name_of (username, suffix));
+	void set_requested_username (const QString & new_username) {
+		if (get_requested_username () != new_username) {
+			requested_username.set (new_username);
+			emit requested_service_name_changed (); // Guaranteed to be changed
+		}
 	}
 
 	QString get_service_name (void) const { return service_name; }
 	QString get_username (void) const { return username_of (service_name); }
 	void set_service_name (const QString & new_service_name) {
+		auto old_username = get_username ();
 		if (service_name != new_service_name) {
 			service_name = new_service_name;
 			emit service_name_changed ();
 		}
+		if (old_username != get_username ())
+			emit username_changed (); // May not change if only suffix is changed
 	}
+
 	quint16 get_port (void) const { return port; }
 };
 
@@ -256,26 +260,21 @@ private slots:
 class ServiceRecord : public DnsSocket {
 	Q_OBJECT
 
-private:
-	bool has_registered{false};
-
-signals:
-	void registered (void);
-
 public:
 	ServiceRecord (LocalDnsPeer * local_peer) : DnsSocket (local_peer) {
-		qDebug ("ServiceRecord[%p]: registering \"%s\"", this,
-		        qPrintable (local_peer->get_desired_name ()));
-		init_with (DNSServiceRegister, 0 /* flags */, 0 /* any interface */,
-		           qUtf8Printable (local_peer->get_desired_name ()),
+		auto name = local_peer->get_requested_service_name ();
+		qDebug ("ServiceRecord[%p]: registering \"%s\"", this, qPrintable (name));
+		init_with (DNSServiceRegister, 0 /* flags */, 0 /* any interface */, qUtf8Printable (name),
 		           qUtf8Printable (Const::service_type), nullptr /* default domain */,
 		           nullptr /* default hostname */,
 		           qToBigEndian (local_peer->get_port ()) /* port in NBO */, 0,
 		           nullptr /* text len and text */, register_callback, this /* context */);
 	}
-	~ServiceRecord () { qDebug ("ServiceRecord[%p]: shutting down", this); }
-
-	bool is_registered (void) const { return has_registered; }
+	~ServiceRecord () {
+		qDebug ("ServiceRecord[%p]: shutting down", this);
+		if (auto lp = get_local_peer ())
+			lp->set_service_name (QString ());
+	}
 
 private:
 	static void DNSSD_API register_callback (DNSServiceRef, DNSServiceFlags,
@@ -289,19 +288,13 @@ private:
 		}
 		qDebug ("ServiceRecord[%p]: registered \"%s\"", c, service_name);
 		c->get_local_peer ()->set_service_name (service_name);
-		c->has_registered = true;
-		emit c->registered ();
 	}
 
 	QString make_error_string (Error e) const Q_DECL_OVERRIDE {
 		return tr ("Service registration failed: %1").arg (DnsSocket::make_error_string (e));
 	}
 
-	LocalDnsPeer * get_local_peer (void) {
-		auto p = qobject_cast<LocalDnsPeer *> (parent ());
-		Q_ASSERT (p);
-		return p;
-	}
+	LocalDnsPeer * get_local_peer (void) { return qobject_cast<LocalDnsPeer *> (parent ()); }
 };
 
 /* Temporary structure use to represent a resolve query.
@@ -372,6 +365,7 @@ signals:
 
 public:
 	Browser (LocalDnsPeer * local_peer) : DnsSocket (local_peer) {
+		connect (local_peer, &LocalDnsPeer::service_name_changed, this, &Browser::service_name_changed);
 		qDebug ("Browser[%p]: started", this);
 		init_with (DNSServiceBrowse, 0 /* flags */, 0 /* interface */,
 		           qUtf8Printable (Const::service_type), nullptr /* default domain */, browser_callback,
@@ -399,16 +393,14 @@ private:
 			});
 		} else {
 			// Peer is removed
-			auto p = c->find_peer_by_service_name (service_name);
-			if (p)
+			if (auto p = c->find_peer_by_service_name (service_name))
 				p->deleteLater ();
 		}
 	}
 
 private slots:
 	void peer_resolved (DnsPeer * peer) {
-		auto p = find_peer_by_service_name (peer->get_service_name ());
-		if (p) {
+		if (auto p = find_peer_by_service_name (peer->get_service_name ())) {
 			// Update, and let peer be discarded
 			qDebug ("Browser[%p]: updating \"%s\"", this, qPrintable (peer->get_service_name ()));
 			p->set_hostname (peer->get_hostname ());
@@ -425,6 +417,12 @@ private slots:
 		}
 	}
 
+	void service_name_changed (void) {
+		// Stop tracking our own service record
+		if (auto p = find_peer_by_service_name (get_local_peer ()->get_service_name ()))
+			p->deleteLater ();
+	}
+
 private:
 	DnsPeer * find_peer_by_service_name (const QString & service_name) {
 		for (auto dns_peer : findChildren<DnsPeer *> (QString (), Qt::FindDirectChildrenOnly))
@@ -437,11 +435,7 @@ private:
 		return tr ("Service browser failed: %1").arg (DnsSocket::make_error_string (e));
 	}
 
-	LocalDnsPeer * get_local_peer (void) {
-		auto p = qobject_cast<LocalDnsPeer *> (parent ());
-		Q_ASSERT (p);
-		return p;
-	}
+	LocalDnsPeer * get_local_peer (void) { return qobject_cast<LocalDnsPeer *> (parent ()); }
 };
 }
 

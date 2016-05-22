@@ -3,12 +3,12 @@
 
 #include <QBrush>
 #include <QFlags>
+#include <QHeaderView>
 #include <QHostInfo>
 #include <QMimeData>
 #include <QSpinBox>
 #include <QStyledItemDelegate>
 #include <QTreeView>
-#include <QHeaderView>
 #include <QUrl>
 #include <limits>
 
@@ -259,7 +259,7 @@ public:
 				spin_box->setMaximum (int(L::max ()));
 			}
 		}
-		return widget; // TODO nice editor options
+		return widget;
 	}
 
 	void updateEditorGeometry (QWidget * editor, const QStyleOptionViewItem & option,
@@ -302,7 +302,7 @@ public:
 	void setModel (Model * model) {
 		QTreeView::setModel (model);
 		connect (delegate, &Delegate::button_clicked, model, &Model::button_clicked);
-		
+
 		auto h = header ();
 		h->setStretchLastSection (false);
 		h->setSectionResizeMode (QHeaderView::ResizeToContents);
@@ -311,6 +311,20 @@ public:
 
 private:
 	using QTreeView::setModel;
+
+	QModelIndex moveCursor (CursorAction action, Qt::KeyboardModifiers modifiers) Q_DECL_OVERRIDE {
+		auto index = currentIndex ();
+		switch (action) {
+		case MoveRight:
+		case MoveNext:
+			return index.sibling (index.row (), index.column () + 1);
+		case MoveLeft:
+		case MovePrevious:
+			return index.sibling (index.row (), index.column () - 1);
+		default:
+			return QTreeView::moveCursor (action, modifiers);
+		}
+	}
 };
 }
 

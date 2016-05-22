@@ -54,8 +54,8 @@ class SubSystem : public QStatusBar {
 private:
 	LocalDnsPeer * local_peer;
 
-	QPointer<ServiceRecord> service_record;
-	QPointer<Browser> browser;
+	ServiceRecord * service_record{nullptr};
+	Browser * browser{nullptr};
 
 	QString current_errors{"Init"};
 	QLabel * warning_symbol{nullptr};
@@ -68,9 +68,6 @@ signals:
 public:
 	SubSystem (LocalDnsPeer * local_peer_, QWidget * parent = nullptr)
 	    : QStatusBar (parent), local_peer (local_peer_) {
-		connect (local_peer, &LocalDnsPeer::desired_name_changed, this,
-		         &SubSystem::desired_name_changed);
-
 		// Create widgets of status bar
 		warning_symbol = new QLabel (this);
 		warning_symbol->setPixmap (
@@ -85,23 +82,35 @@ public:
 		addWidget (restart);
 		connect (restart, &QPushButton::clicked, this, &SubSystem::start_services);
 
+		connect (local_peer, &LocalDnsPeer::requested_service_name_changed, this,
+		         &SubSystem::rename_service_record);
+		connect (local_peer, &LocalDnsPeer::service_name_changed, this, &SubSystem::message_changed);
+
 		// Start services for the first time
 		start_services ();
 	}
 
 private slots:
 	void start_service_record (void) {
-		auto s = new ServiceRecord (local_peer);
-		connect (s, &ServiceRecord::registered, this, &SubSystem::message_changed);
-		connect (s, &ServiceRecord::being_destroyed, this, &SubSystem::append_error);
-		service_record = s;
+		service_record = new ServiceRecord (local_peer);
+		connect (service_record, &ServiceRecord::being_destroyed, this,
+		         &SubSystem::service_record_destroyed);
 	}
+	void service_record_destroyed (const QString & error) {
+		service_record = nullptr;
+		append_error (error);
+	}
+
 	void start_browser (void) {
-		auto b = new Browser (local_peer);
-		connect (b, &Browser::added, this, &SubSystem::new_discovered_peer);
-		connect (b, &Browser::being_destroyed, this, &SubSystem::append_error);
-		browser = b;
+		browser = new Browser (local_peer);
+		connect (browser, &Browser::added, this, &SubSystem::new_discovered_peer);
+		connect (browser, &Browser::being_destroyed, this, &SubSystem::browser_destroyed);
 	}
+	void browser_destroyed (const QString & error) {
+		browser = nullptr;
+		append_error (error);
+	}
+
 	void start_services (void) {
 		// Restart all dead services
 		if (!service_record)
@@ -111,19 +120,26 @@ private slots:
 		clear_errors ();
 	}
 
+	void rename_service_record (void) {
+		// Kill current ServiceRecord and restart
+		Q_ASSERT (service_record != nullptr);
+		connect (service_record, &QObject::destroyed, this, &SubSystem::start_service_record);
+		service_record->deleteLater ();
+	}
+
 	void message_changed (void) { message->setText (make_status_message () + current_errors); }
 
+private:
 	void append_error (const QString & error) {
-		// TODO correctly show "unregistered->registering->registered" when restarting ServiceRecord
-		if (error.isEmpty ())
-			return; // ignore
-		if (current_errors.isEmpty ()) {
-			insertWidget (0, warning_symbol);
-			warning_symbol->show ();
-			addWidget (restart);
-			restart->show ();
+		if (!error.isEmpty ()) {
+			if (current_errors.isEmpty ()) {
+				insertWidget (0, warning_symbol);
+				warning_symbol->show ();
+				addWidget (restart);
+				restart->show ();
+			}
+			current_errors += "\n" + error;
 		}
-		current_errors += "\n" + error;
 		message_changed ();
 	}
 
@@ -132,22 +148,13 @@ private slots:
 			removeWidget (warning_symbol);
 			removeWidget (restart);
 			current_errors.clear ();
-			message_changed ();
 		}
+		message_changed ();
 	}
 
-	void desired_name_changed (void) {
-		// Kill current ServiceRecord and restart
-		auto record = service_record.data ();
-		Q_ASSERT (record != nullptr);
-		connect (record, &QObject::destroyed, this, &SubSystem::start_service_record);
-		record->deleteLater ();
-	}
-
-private:
 	QString make_status_message (void) const {
 		if (service_record) {
-			if (service_record->is_registered ()) {
+			if (!local_peer->get_service_name ().isEmpty ()) {
 				return tr ("Localshare running on port %1 and registered with username \"%2\".")
 				    .arg (local_peer->get_port ())
 				    .arg (local_peer->get_username ());
@@ -156,7 +163,7 @@ private:
 				    .arg (local_peer->get_port ());
 			}
 		} else {
-			return tr ("Localshare running on port %1 and unregistered (error) !")
+			return tr ("Localshare running on port %1 and unregistered !")
 			    .arg (local_peer->get_port ());
 		}
 	}
@@ -194,17 +201,8 @@ public:
 
 			// Local peer
 			using Discovery::LocalDnsPeer;
-			local_peer = new LocalDnsPeer (Settings::Username ().get (), server->port (), this);
-			connect (local_peer, &LocalDnsPeer::service_name_changed, this, &Window::set_window_title);
-
-			connect (local_peer, &LocalDnsPeer::service_name_changed, [=] {
-				qDebug () << "name_changed" << local_peer->get_service_name ()
-				          << local_peer->get_username () << local_peer->get_desired_name ();
-			});
-			connect (local_peer, &LocalDnsPeer::desired_name_changed, [=] {
-				qDebug () << "desired_name_changed" << local_peer->get_service_name ()
-				          << local_peer->get_username () << local_peer->get_desired_name ();
-			});
+			local_peer = new LocalDnsPeer (server->port (), this);
+			connect (local_peer, &LocalDnsPeer::username_changed, this, &Window::set_window_title);
 
 			// Restartable discovery system
 			discovery_subsystem = new Discovery::SubSystem (local_peer, this);
@@ -318,13 +316,11 @@ public:
 			auto change_username = new QAction (tr ("Change username..."), pref);
 			change_username->setStatusTip ("Set a new username in settings and discovery");
 			connect (change_username, &QAction::triggered, [=](void) {
-				Settings::Username setting;
-				QString new_username = QInputDialog::getText (
-				    this, tr ("Select new username"), tr ("Username:"), QLineEdit::Normal, setting.get ());
-				if (!new_username.isEmpty ()) {
-					setting.set (new_username);
-					local_peer->set_desired_username (new_username);
-				}
+				QString new_username =
+				    QInputDialog::getText (this, tr ("Select new username"), tr ("Username:"),
+				                           QLineEdit::Normal, local_peer->get_requested_username ());
+				if (!new_username.isEmpty ())
+					local_peer->set_requested_username (new_username);
 			});
 
 			pref->addAction (use_tray);
@@ -386,7 +382,11 @@ protected:
 
 private slots:
 	void set_window_title (void) {
-		setWindowTitle (tr ("Localshare - %1").arg (local_peer->get_username ()));
+		auto title = tr ("Localshare");
+		auto username = local_peer->get_username ();
+		if (!username.isEmpty ())
+			title += " - " + username;
+		setWindowTitle (title);
 	}
 
 	void tray_activated (QSystemTrayIcon::ActivationReason reason) {

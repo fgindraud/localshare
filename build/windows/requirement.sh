@@ -31,7 +31,7 @@ sudo apt-get -y -q install \
 # Redirect to right qmake / g++
 export PATH="${MXE_DIR}/usr/bin:${PATH}"
 function qmake () {
-	"${MXE_TARGET}-qmake-qt5" "$@"
+	"${MXE_EXEC}-qmake-qt5" "$@"
 }
 
 ### Bonjour apple library ###
