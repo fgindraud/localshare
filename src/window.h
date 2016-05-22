@@ -155,15 +155,18 @@ private:
 	QString make_status_message (void) const {
 		if (service_record) {
 			if (!local_peer->get_service_name ().isEmpty ()) {
-				return tr ("Localshare running on port %1 and registered with username \"%2\".")
+				return tr ("%1 running on port %2 and registered with username \"%3\".")
+				    .arg (Const::app_display_name)
 				    .arg (local_peer->get_port ())
 				    .arg (local_peer->get_username ());
 			} else {
-				return tr ("Localshare running on port %1 and registering...")
+				return tr ("%1 running on port %2 and registering...")
+				    .arg (Const::app_display_name)
 				    .arg (local_peer->get_port ());
 			}
 		} else {
-			return tr ("Localshare running on port %1 and unregistered !")
+			return tr ("%1 running on port %2 and unregistered !")
+			    .arg (Const::app_display_name)
 			    .arg (local_peer->get_port ());
 		}
 	}
@@ -340,9 +343,9 @@ public:
 			about_qt->setStatusTip (tr ("Information about Qt"));
 			connect (about_qt, &QAction::triggered, qApp, &QApplication::aboutQt);
 
-			auto about = new QAction (tr ("&About Localshare"), help);
+			auto about = new QAction (tr ("&About %1").arg (Const::app_display_name), help);
 			about->setMenuRole (QAction::AboutRole);
-			about->setStatusTip (tr ("Information about Localshare"));
+			about->setStatusTip (tr ("Information about %1").arg (Const::app_display_name));
 			connect (about, &QAction::triggered, this, &Window::show_about);
 
 			help->addAction (about_qt);
@@ -352,11 +355,13 @@ public:
 		// Toolbar
 		{
 			auto tool_bar = addToolBar (tr ("Application"));
+			tool_bar->setMovable (false);
 			tool_bar->setObjectName ("toolbar");
 			tool_bar->addAction (action_send);
 			tool_bar->addAction (action_add_peer);
 		}
 
+		setUnifiedTitleAndToolBarOnMac (true);
 		set_window_title ();
 		restoreGeometry (Settings::Geometry ().get ());
 		restoreState (Settings::WindowState ().get ());
@@ -382,11 +387,11 @@ protected:
 
 private slots:
 	void set_window_title (void) {
-		auto title = tr ("Localshare");
 		auto username = local_peer->get_username ();
-		if (!username.isEmpty ())
-			title += " - " + username;
-		setWindowTitle (title);
+		if (username.isEmpty ())
+			setWindowTitle (tr ("Unregistered"));
+		else
+			setWindowTitle (username);
 	}
 
 	void tray_activated (QSystemTrayIcon::ActivationReason reason) {
@@ -439,11 +444,16 @@ private slots:
 	// About message
 
 	void show_about (void) {
-		QMessageBox::about (
-		    this, tr ("About Localshare"),
-		    tr ("<p>Localshare v%1 is a small file sharing app for the local network.</p>"
-
-		        "<p>It is designed to easily send files to peers across the local network. "
+		auto msg = new QMessageBox (this);
+		msg->setAttribute (Qt::WA_DeleteOnClose);
+		msg->setIconPixmap (
+		    Icon::app ().pixmap (style ()->pixelMetric (QStyle::PM_MessageBoxIconSize)));
+		msg->setWindowTitle (tr ("About %1").arg (Const::app_display_name));
+		msg->setText (tr ("<p>%1 v%2 is a small file sharing application for the local network.</p>")
+		                  .arg (Const::app_display_name)
+		                  .arg (Const::app_version));
+		msg->setInformativeText (
+		    tr ("<p>It is designed to easily send files to peers across the local network. "
 		        "It can be viewed as a netcat with auto discovery of peers and a nice interface. "
 		        "Drag & drop a file on a peer, "
 		        "or select peers and click on send to initiate a transfer. "
@@ -453,19 +463,20 @@ private slots:
 		        "<p>Be careful of the automatic download option. "
 		        "It prevents you from rejecting unwanted file offers, "
 		        "and could allow attackers to fill your disk. "
-		        "As a general rule, be careful if you use Localshare on a public network.</p>"
+		        "As a general rule, be careful if you use %1 on a public network.</p>"
 
 		        "<p>Without automatic download, you must accept each transfer manually. "
 		        "Before accepting, you can change the destination by clicking the directory icon. "
 		        "You can also change the default destination in the preferences.</p>"
 
-		        "<p>If using the system tray icon, Localshare acts like a small daemon. "
+		        "<p>If using the system tray icon, %1 acts like a small daemon. "
 		        "Hiding/closing the window only reduces it to the system tray. "
 		        "It can be useful for long transfers, but do not forget to close it !</p>"
 
 		        "<p>Copyright (C) 2016 François Gindraud.</p>"
-		        "<p><a href='https://github.com/lereldarion/qt-localshare'>Github Link</a></p>")
-		        .arg (Const::app_version));
+		        "<p><a href=\"https://github.com/lereldarion/qt-localshare\">Github Link</a></p>")
+		        .arg (Const::app_display_name));
+		msg->exec ();
 	}
 };
 

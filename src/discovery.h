@@ -31,7 +31,7 @@ inline QString username_of (const QString & service_name) {
 	return service_name; // Fallback if not compliant (or <v0.3)
 }
 inline QString service_name_of (const QString & username, const QString & suffix) {
-	return QString ("%1@%2").arg (username, suffix);
+	return QStringLiteral ("%1@%2").arg (username, suffix);
 }
 
 /* QObject representing a discovered peer.
@@ -134,12 +134,15 @@ public:
 
 /* Helper class to manage a DNSServiceRef.
  * This class must be dynamically allocated.
+ * Note that any callback passed will be called by DNSServiceProcessResult.
+ * This means we don't need to care about threading...
  */
 class DnsSocket : public QObject {
 	Q_OBJECT
 
 private:
 	DNSServiceRef ref{nullptr};
+	QSocketNotifier * notifier{nullptr};
 	QString error_msg;
 
 signals:
@@ -152,6 +155,7 @@ signals:
 public:
 	DnsSocket (QObject * parent = nullptr) : QObject (parent) {}
 	~DnsSocket () {
+		delete notifier;
 		DNSServiceRefDeallocate (ref);
 		emit being_destroyed (error_msg);
 	}
@@ -166,7 +170,7 @@ protected:
 		}
 		auto fd = DNSServiceRefSockFD (ref);
 		if (fd != -1) {
-			auto notifier = new QSocketNotifier (fd, QSocketNotifier::Read, this);
+			notifier = new QSocketNotifier (fd, QSocketNotifier::Read);
 			connect (notifier, &QSocketNotifier::activated, this, &DnsSocket::has_pending_data);
 		} else {
 			// Should never happen, the function is just an accessor
@@ -215,7 +219,7 @@ protected:
 		case kDNSServiceErr_Firewall:
 			return tr ("Firewall");
 		case kDNSServiceErr_Incompatible:
-			return tr ("Localshare incompatible with local Zeroconf service");
+			return tr ("Local Zeroconf service not compatible");
 		case kDNSServiceErr_BadInterfaceIndex:
 			return tr ("API error: Bad interface index");
 		case kDNSServiceErr_Refused:
@@ -393,8 +397,10 @@ private:
 			});
 		} else {
 			// Peer is removed
-			if (auto p = c->find_peer_by_service_name (service_name))
+			if (auto p = c->find_peer_by_service_name (service_name)) {
+				qDebug ("Browser[%p]: removing \"%s\"", c, service_name);
 				p->deleteLater ();
+			}
 		}
 	}
 
@@ -419,8 +425,11 @@ private slots:
 
 	void service_name_changed (void) {
 		// Stop tracking our own service record
-		if (auto p = find_peer_by_service_name (get_local_peer ()->get_service_name ()))
+		if (auto p = find_peer_by_service_name (get_local_peer ()->get_service_name ())) {
+			qDebug ("Brower[%p]: removing local_peer \"%s\"", this,
+			        qPrintable (get_local_peer ()->get_service_name ()));
 			p->deleteLater ();
+		}
 	}
 
 private:

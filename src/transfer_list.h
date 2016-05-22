@@ -141,7 +141,7 @@ private:
 		if (value.canConvert<int> ()) {
 			auto v = value.toInt ();
 			option.progress = v;
-			option.text = QString ("%1%").arg (v);
+			option.text = QStringLiteral ("%1%").arg (v);
 			option.textVisible = true;
 		}
 	}

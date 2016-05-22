@@ -7,7 +7,13 @@
 namespace Const {
 // Application name for settings, etc...
 constexpr auto app_name = "localshare";
-constexpr auto app_version = "0.2";
+constexpr auto app_display_name = "Localshare";
+
+#define XSTR(x) #x
+#define STR(x) XSTR (x)
+constexpr auto app_version = STR (LOCALSHARE_VERSION);
+#undef STR
+#undef XSTR
 
 // Network service name
 constexpr auto service_type = "_localshare._tcp.";

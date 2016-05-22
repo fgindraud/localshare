@@ -1,4 +1,4 @@
-LocalShare - Local file sharing application
+Localshare - Local file sharing application
 ===========================================
 
 [![Build Status](https://travis-ci.org/lereldarion/qt-localshare.svg?branch=master)](https://travis-ci.org/lereldarion/qt-localshare)
