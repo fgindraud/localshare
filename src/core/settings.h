@@ -1,5 +1,6 @@
-#ifndef SETTINGS_H
-#define SETTINGS_H
+#pragma once
+#ifndef CORE_SETTINGS_H
+#define CORE_SETTINGS_H
 
 #include <QSettings>
 #include <QByteArray>

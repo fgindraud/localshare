@@ -1,5 +1,6 @@
-#ifndef STYLE_H
-#define STYLE_H
+#pragma once
+#ifndef GUI_STYLE_H
+#define GUI_STYLE_H
 
 #include <QApplication>
 #include <QIcon>

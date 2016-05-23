@@ -1,5 +1,6 @@
-#ifndef BUTTON_DELEGATE_H
-#define BUTTON_DELEGATE_H
+#pragma once
+#ifndef GUI_BUTTON_DELEGATE_H
+#define GUI_BUTTON_DELEGATE_H
 
 #include <QAbstractItemDelegate>
 #include <QApplication>

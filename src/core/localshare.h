@@ -1,5 +1,9 @@
-#ifndef LOCALSHARE_H
-#define LOCALSHARE_H
+#pragma once
+#ifndef CORE_LOCALSHARE_H
+#define CORE_LOCALSHARE_H
+
+#include <QApplication>
+#include <QCoreApplication>
 
 #include <QDataStream>
 #include <QHostAddress>
@@ -22,6 +26,18 @@ constexpr auto service_type = "_localshare._tcp.";
 constexpr auto serializer_version = QDataStream::Qt_5_0; // We are only compatible with Qt5 anyway
 constexpr quint16 protocol_version = 1;
 constexpr quint16 protocol_magic = 0x0CAA;
+
+// Setup app object (graphical and console version)
+inline void setup (QCoreApplication & app) {
+	app.setApplicationVersion (Const::app_version);
+	// These two enable the use of QSetting default constructor
+	app.setOrganizationName (Const::app_name);
+	app.setApplicationName (Const::app_name);
+}
+inline void setup (QApplication & app) {
+	setup (static_cast<QCoreApplication &> (app));
+	app.setApplicationDisplayName (Const::app_display_name);
+}
 }
 
 /*

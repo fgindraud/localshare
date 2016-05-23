@@ -66,8 +66,12 @@ Done:
 
 Todo:
 * transfer protocol:
-	* improve perf
+	* improve perf (map file, chunks, ...)
 	* directories
 	* pre filter stuff in Transfer::Server before showing it
 * get attention if minimized (modified icon / OS specific way)
+* console interface ?
+	* probably batch mode (wait for specific file, send specific file to peer)
+	* or very simple interactive ?
+	* will need to extract transfer functionnality from graphics
 

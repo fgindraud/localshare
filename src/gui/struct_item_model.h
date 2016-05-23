@@ -1,5 +1,6 @@
-#ifndef STRUCT_ITEM_MODEL_H
-#define STRUCT_ITEM_MODEL_H
+#pragma once
+#ifndef GUI_STRUCT_ITEM_MODEL_H
+#define GUI_STRUCT_ITEM_MODEL_H
 
 #include <QAbstractItemModel>
 #include <QPersistentModelIndex>

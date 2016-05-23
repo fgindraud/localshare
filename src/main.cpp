@@ -1,27 +1,13 @@
-#include "localshare.h"
-#include "style.h"
-#include "window.h"
-
-#include <QApplication>
+#include "cli/main.h"
+#include "gui/main.h"
 
 namespace Transfer {
 Sizes sizes; // Precompute sizes
 }
 
 int main (int argc, char * argv[]) {
-	QApplication app (argc, argv);
-	
-	// Enable usage of QSettings default constructor
-	app.setOrganizationName (Const::app_name);
-	app.setApplicationName (Const::app_name);
-
-	// Other misc info
-	app.setApplicationDisplayName (Const::app_display_name);
-	app.setApplicationVersion (Const::app_version);
-
-	// Start app, set icons
-	app.setWindowIcon (Icon::app ());
-	Window window;
-	
-	return app.exec ();
+	if (is_console_mode (argc, argv))
+		return console_main (argc, argv);
+	else
+		return gui_main (argc, argv);
 }

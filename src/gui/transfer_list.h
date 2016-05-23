@@ -1,3 +1,4 @@
+#pragma once
 #ifndef TRANSFER_LIST_H
 #define TRANSFER_LIST_H
 
@@ -9,9 +10,9 @@
 #include <QTreeView>
 #include <QHeaderView>
 
-#include "button_delegate.h"
-#include "struct_item_model.h"
-#include "style.h"
+#include "gui/button_delegate.h"
+#include "gui/struct_item_model.h"
+#include "gui/style.h"
 
 namespace Transfer {
 

@@ -1,5 +1,6 @@
-#ifndef PEER_LIST_H
-#define PEER_LIST_H
+#pragma once
+#ifndef GUI_PEER_LIST_H
+#define GUI_PEER_LIST_H
 
 #include <QBrush>
 #include <QFlags>
@@ -12,11 +13,11 @@
 #include <QUrl>
 #include <limits>
 
-#include "button_delegate.h"
-#include "discovery.h"
-#include "localshare.h"
-#include "struct_item_model.h"
-#include "style.h"
+#include "core/localshare.h"
+#include "core/discovery.h"
+#include "gui/style.h"
+#include "gui/button_delegate.h"
+#include "gui/struct_item_model.h"
 
 namespace PeerList {
 

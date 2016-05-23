@@ -1,5 +1,6 @@
-#ifndef DISCOVERY_H
-#define DISCOVERY_H
+#pragma once
+#ifndef CORE_DISCOVERY_H
+#define CORE_DISCOVERY_H
 
 #include <QHostInfo>
 #include <QSocketNotifier>
@@ -11,8 +12,8 @@
 #include <utility> // std::forward
 
 #include "compatibility.h"
-#include "localshare.h"
-#include "settings.h"
+#include "core/localshare.h"
+#include "core/settings.h"
 
 namespace Discovery {
 /* Service name vs Username.

@@ -1,12 +1,13 @@
-#ifndef TRANSFER_H
-#define TRANSFER_H
+#pragma once
+#ifndef CORE_TRANSFER_H
+#define CORE_TRANSFER_H
 
 #include <QDataStream>
 #include <QByteArray>
 #include <limits>
 #include <type_traits>
 
-#include "localshare.h"
+#include "core/localshare.h"
 
 namespace Transfer {
 

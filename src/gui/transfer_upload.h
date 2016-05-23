@@ -1,14 +1,15 @@
-#ifndef TRANSFER_UPLOAD_H
-#define TRANSFER_UPLOAD_H
+#pragma once
+#ifndef GUI_TRANSFER_UPLOAD_H
+#define GUI_TRANSFER_UPLOAD_H
 
 #include <QTcpSocket>
 #include <QFile>
 #include <QFileInfo>
 #include <QDataStream>
 
-#include "style.h"
-#include "transfer.h"
-#include "transfer_list.h"
+#include "core/transfer.h"
+#include "gui/style.h"
+#include "gui/transfer_list.h"
 
 namespace Transfer {
 
