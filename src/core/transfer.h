@@ -48,7 +48,7 @@ public:
 	 * MessageSize is the type used to store that size.
 	 * It can store up to message_size_max.
 	 */
-	using MessageSize = quint16;
+	using MessageSize = quint32;
 	static constexpr auto message_size_max =
 	    static_cast<qint64> (std::numeric_limits<MessageSize>::max ());
 

@@ -5,7 +5,11 @@
 #include <QByteArray>
 #include <QCoreApplication>
 
+#include <QIODevice>
+#include <cstring>
+
 #include "core/localshare.h"
+#include "core/payload.h"
 
 /* TODO batch mode
  * start a QCoreApplication instead in batch mode
@@ -27,20 +31,55 @@ inline bool is_console_mode (int argc, const char * const * argv) {
 inline int console_main (int & argc, char **& argv) {
 	QCoreApplication app (argc, argv);
 	Const::setup (app);
-	qDebug ("Batch mode, TODO");
+	qDebug ("Batch mode, TODO, currently test area");
 
+#if 1
+	if (argc <= 3) {
+		qDebug () << "usage"
+		          << "prog"
+		          << "source"
+		          << "target";
+		return 0;
+	}
 
-/*	
-	QFile file ("/home/fgindraud/todo");
-	qDebug () << file.exists ();
-	qDebug () << file.open (QIODevice::ReadOnly);
-	auto p = file.map (0, file.size ());
-	qDebug () << p;
-	QTimer timer;
-	timer.connect (&timer, &QTimer::timeout, [&] { qDebug () << file.size (); });
-	timer.start (1000);
-*/
+	Payload::Manager payload;
+	payload.from_source_path (argv[1], true);
+	qDebug () << "payload" << payload;
 
+	Payload::Manager target;
+	target.set_root_dir (argv[2]);
+
+	QByteArray buf;
+	{
+		QDataStream s (&buf, QIODevice::WriteOnly);
+		s << payload;
+		payload.start_transfer (Payload::Manager::Sending);
+		while (payload.next_chunk_size () > 0) {
+			if (!payload.send_next_chunk (s)) {
+				qDebug () << "fail send_next_chunk" << payload.get_last_error ();
+				return 0;
+			}
+		}
+		s << payload.take_pending_checksums ();
+	}
+	{
+		QDataStream s (&buf, QIODevice::ReadOnly);
+		s >> target;
+		qDebug () << "target" << target;
+		target.start_transfer (Payload::Manager::Receiving);
+		if (!target.receive_chunk (s, target.get_total_size ())) {
+			qDebug () << "fail receive_chunk" << target.get_last_error ();
+			return 0;
+		}
+		Payload::Manager::ChecksumList csl;
+		s >> csl;
+		if (!target.test_checksums (csl)) {
+			qDebug () << "fail test_checksums" << target.get_last_error ();
+			return 0;
+		}
+	}
+#endif
+	return 0;
 	return app.exec ();
 }
 

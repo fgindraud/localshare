@@ -1,0 +1,7 @@
+moc_*.cpp
+*.o
+
+Makefile
+qrc_resources.cpp
+
+.clang_complete

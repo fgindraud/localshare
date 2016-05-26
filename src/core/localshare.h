@@ -4,8 +4,11 @@
 
 #include <QApplication>
 #include <QCoreApplication>
-
 #include <QDataStream>
+#include <QCryptographicHash>
+#include <QDebug>
+#include <type_traits>
+
 #include <QHostAddress>
 
 namespace Const {
@@ -23,9 +26,11 @@ constexpr auto app_version = STR (LOCALSHARE_VERSION);
 constexpr auto service_type = "_localshare._tcp.";
 
 // Protocol
-constexpr auto serializer_version = QDataStream::Qt_5_0; // We are only compatible with Qt5 anyway
-constexpr quint16 protocol_version = 1;
 constexpr quint16 protocol_magic = 0x0CAA;
+constexpr auto serializer_version = QDataStream::Qt_5_0; // We are only compatible with Qt5 anyway
+constexpr auto hash_algorithm = QCryptographicHash::Md5;
+constexpr quint16 protocol_version = 1; // Must be bumped when var above change TODO 2
+constexpr auto chunk_size = qint64 (0x1) << 12; // TODO set by perf
 
 // Setup app object (graphical and console version)
 inline void setup (QCoreApplication & app) {
@@ -38,6 +43,34 @@ inline void setup (QApplication & app) {
 	setup (static_cast<QCoreApplication &> (app));
 	app.setApplicationDisplayName (Const::app_display_name);
 }
+}
+
+/* Classes can inherit from tag Streamable.
+ * It enables them to be QDataStream compatible through methods to/from_stream.
+ * (instead of inline funcs outside class)
+ */
+struct StreamableOut {};
+template <typename T,
+          typename = typename std::enable_if<std::is_base_of<StreamableOut, T>::value>::type>
+inline QDataStream & operator<< (QDataStream & stream, const T & t) {
+	t.to_stream (stream);
+	return stream;
+}
+struct StreamableIn {};
+template <typename T,
+          typename = typename std::enable_if<std::is_base_of<StreamableIn, T>::value>::type>
+inline QDataStream & operator>> (QDataStream & stream, T & t) {
+	t.from_stream (stream);
+	return stream;
+}
+struct Streamable : public StreamableOut, public StreamableIn {};
+
+// Same for Debug
+struct Debugable {};
+template <typename T,
+          typename = typename std::enable_if<std::is_base_of<Debugable, T>::value>::type>
+inline QDebug operator<< (QDebug debug, const T & t) {
+	return t.to_debug (debug);
 }
 
 /*
