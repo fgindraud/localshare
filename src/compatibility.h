@@ -8,6 +8,7 @@
 #include <QString>
 #include <QtGlobal>
 #include <iterator>
+#include <utility>
 
 #if (QT_VERSION < QT_VERSION_CHECK(5, 4, 0))
 // No qUtf8Printable
@@ -41,6 +42,23 @@ template <typename T> inline ConstReverseIteratorForQList<T> rend (const QList<T
 #else
 using std::rbegin;
 using std::rend;
+#endif
+
+#if (__cplusplus < 201402L)
+// No integer sequence
+template <std::size_t... I> struct IndexSequence {
+	using Successor = IndexSequence<I..., sizeof...(I)>;
+};
+namespace Impl {
+template <std::size_t N> struct Seq { using Type = typename Seq<N - 1>::Type::Successor; };
+template <> struct Seq<0> { using Type = IndexSequence<>; };
+}
+template <std::size_t N> using MakeIndexSequence = typename Impl::Seq<N>::Type;
+template <typename... Types> using IndexSequenceFor = MakeIndexSequence<sizeof...(Types)>;
+#else
+template <std::size_t... I> using IndexSequence = std::index_sequence<I...>;
+template <std:: : size_t N> using MakeIndexSequence = std::make_index_sequence<N>;
+template <typename... Types> using IndexSequenceFor = std::index_sequence_for<Types...>;
 #endif
 
 #endif

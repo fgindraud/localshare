@@ -4,12 +4,15 @@
 
 #include <QApplication>
 #include <QCoreApplication>
-#include <QDataStream>
 #include <QCryptographicHash>
+#include <QDataStream>
 #include <QDebug>
 #include <type_traits>
+#include <tuple>
 
 #include <QHostAddress>
+
+#include "compatibility.h"
 
 namespace Const {
 // Application name for settings, etc...
@@ -30,7 +33,7 @@ constexpr quint16 protocol_magic = 0x0CAA;
 constexpr auto serializer_version = QDataStream::Qt_5_0; // We are only compatible with Qt5 anyway
 constexpr auto hash_algorithm = QCryptographicHash::Md5;
 constexpr quint16 protocol_version = 0x2;
-constexpr auto chunk_size = qint64 (10000); // TODO adjust for perf. 10Ko ?
+constexpr auto chunk_size = qint64 (10000);         // TODO adjust for perf. 10Ko ?
 constexpr auto write_buffer_size = qint64 (100000); // TODO same. 100Ko ?
 
 // Setup app object (graphical and console version)
@@ -72,6 +75,42 @@ template <typename T,
           typename = typename std::enable_if<std::is_base_of<Debugable, T>::value>::type>
 inline QDebug operator<< (QDebug debug, const T & t) {
 	return t.to_debug (debug);
+}
+
+// Utility functions for streams
+inline void to_stream (QDataStream &) {}
+template <typename Head, typename... Tail>
+void to_stream (QDataStream & stream, const Head & h, const Tail &... tail) {
+	stream << h;
+	to_stream (stream, tail...);
+}
+inline void from_stream (QDataStream &) {}
+template <typename Head, typename... Tail>
+void from_stream (QDataStream & stream, Head & h, Tail &... tail) {
+	stream >> h;
+	from_stream (stream, tail...);
+}
+
+// Make std::tuple QDataStream compatible
+namespace Impl {
+	template <typename... Types, std::size_t... I>
+	void to_stream (QDataStream & stream, const std::tuple<Types...> & tuple, IndexSequence<I...>) {
+		to_stream (stream, std::get<I> (tuple)...);
+	}
+	template <typename... Types, std::size_t... I>
+	void from_stream (QDataStream & stream, const std::tuple<Types...> & tuple, IndexSequence<I...>) {
+		from_stream (stream, std::get<I> (tuple)...);
+	}
+}
+template <typename... Types>
+inline QDataStream & operator<< (QDataStream & stream, const std::tuple<Types...> & tuple) {
+	Impl::to_stream (stream, tuple, IndexSequenceFor<Types...> ());
+	return stream;
+}
+template <typename... Types>
+inline QDataStream & operator>> (QDataStream & stream, const std::tuple<Types...> & tuple) {
+	Impl::from_stream (stream, tuple, IndexSequenceFor<Types...> ());
+	return stream;
 }
 
 /*

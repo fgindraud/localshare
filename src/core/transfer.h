@@ -7,51 +7,13 @@
 #include <QDataStream>
 #include <QTcpSocket>
 #include <limits>
-#include <tuple>
 #include <type_traits>
-#include <utility>
+#include <tuple>
 
 #include "core/localshare.h"
 #include "core/payload.h"
 
 namespace Transfer {
-
-// Make std::tuple QDataStream compatible
-namespace Detail {
-	inline void to_stream (QDataStream &) {}
-	template <typename Head, typename... Tail>
-	void to_stream (QDataStream & stream, const Head & h, const Tail &... tail) {
-		stream << h;
-		to_stream (stream, tail...);
-	}
-	template <typename... Types, std::size_t... I>
-	void to_stream (QDataStream & stream, const std::tuple<Types...> & tuple,
-	                std::index_sequence<I...>) {
-		to_stream (stream, std::get<I> (tuple)...);
-	}
-
-	inline void from_stream (QDataStream &) {}
-	template <typename Head, typename... Tail>
-	void from_stream (QDataStream & stream, Head & h, Tail &... tail) {
-		stream >> h;
-		from_stream (stream, tail...);
-	}
-	template <typename... Types, std::size_t... I>
-	void from_stream (QDataStream & stream, const std::tuple<Types...> & tuple,
-	                  std::index_sequence<I...>) {
-		from_stream (stream, std::get<I> (tuple)...);
-	}
-}
-template <typename... Types>
-inline QDataStream & operator<< (QDataStream & stream, const std::tuple<Types...> & tuple) {
-	Detail::to_stream (stream, tuple, std::index_sequence_for<Types...> ());
-	return stream;
-}
-template <typename... Types>
-inline QDataStream & operator>> (QDataStream & stream, const std::tuple<Types...> & tuple) {
-	Detail::from_stream (stream, tuple, std::index_sequence_for<Types...> ());
-	return stream;
-}
 
 namespace Message {
 	/* Protocol definition.
@@ -158,7 +120,7 @@ private:
 
 		template <typename... Args> qint64 compute_size (const Args &... args) {
 			device.reset ();
-			Detail::to_stream (stream, args...);
+			to_stream (stream, args...);
 			Q_ASSERT (stream.status () == QDataStream::Ok);
 			return device.pos ();
 		}
