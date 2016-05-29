@@ -60,6 +60,8 @@ public:
 	QString get_file_path (void) const { return file_path; }
 	qint64 get_size (void) const { return size; }
 
+	void set_file_path (const QString & path) { file_path = path; }
+
 	// Only export/import filename and size
 	void to_stream (QDataStream & stream) const { stream << file_path << size; }
 	void from_stream (QDataStream & stream) { stream >> file_path >> size; }
@@ -211,14 +213,26 @@ public:
 
 	QString get_transfer_name (void) const { return transfer_name; }
 	qint64 get_total_size (void) const { return total_size; }
-
-	bool is_simple_file_transfer (void) const {
-		return files.size () == 1 && QFileInfo (files.front ().get_file_path ()).path () == ".";
-	}
+	QString get_root_dir (void) const { return root_dir_path; }
 
 	void set_root_dir (const QString & path) {
 		Q_ASSERT (transfer_status == Closed);
 		root_dir_path = path;
+	}
+
+	// Special cases for a single file transfer
+	bool is_simple_file_transfer (void) const {
+		return files.size () == 1 && QFileInfo (files.front ().get_file_path ()).path () == ".";
+	}
+	void set_target_file (const QString & file_path) {
+		Q_ASSERT (is_simple_file_transfer ());
+		QFileInfo info (QFileInfo (file_path).canonicalFilePath ());
+		set_root_dir (info.path ());
+		files.front ().set_file_path (info.fileName ());
+	}
+	QString get_target_file_path (void) const {
+		Q_ASSERT (is_simple_file_transfer ());
+		return QFileInfo (root_dir_path + "/" + files.front ().get_file_path ()).canonicalFilePath ();
 	}
 
 	// File list management
@@ -311,6 +325,18 @@ public:
 		current_file = next_file_to_checksum = files.begin ();
 	}
 
+	void stop_transfer (void) {
+		if (current_file != files.end ())
+			current_file->close ();
+		current_file = next_file_to_checksum = files.end ();
+		transfer_status = Closed;
+	}
+
+	bool is_transfer_complete (void) const {
+		// No specific marker for success, but this should catch all cases.
+		return transfer_status == Closed && last_error.isEmpty () && total_transfered == total_size;
+	}
+
 	qint64 get_total_transfered_size (void) const { return total_transfered; }
 
 	qint64 next_chunk_size (void) const {
@@ -351,6 +377,10 @@ public:
 
 	bool receive_chunk (QDataStream & stream, qint64 chunk_size) {
 		Q_ASSERT (transfer_status == Receiving);
+		if (chunk_size > (total_size - total_transfered)) {
+			transfer_error (QObject::tr ("Chunk goes past the end of transfer"));
+			return false;
+		}
 		auto bytes_to_receive = chunk_size;
 		while (bytes_to_receive > 0) {
 			Q_ASSERT (total_transfered <= total_size);
@@ -372,10 +402,8 @@ public:
 				current_file++;
 			}
 		}
-		if (total_transfered == total_size) {
+		if (total_transfered == total_size)
 			Q_ASSERT (current_file == files.end ());
-			transfer_status = Closed;
-		}
 		return true;
 	}
 
@@ -402,16 +430,15 @@ public:
 			}
 			next_file_to_checksum++;
 		}
+		if (next_file_to_checksum == files.end ())
+			stop_transfer (); // Last file ok
 		return true;
 	}
 
 private:
 	void transfer_error (const QString & why) {
 		last_error = why;
-		if (current_file != files.end ())
-			current_file->close ();
-		current_file = files.end ();
-		transfer_status = Closed;
+		stop_transfer ();
 	}
 };
 }

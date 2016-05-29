@@ -2,9 +2,9 @@
 #ifndef GUI_TRANSFER_DOWNLOAD_H
 #define GUI_TRANSFER_DOWNLOAD_H
 
-#include <QTcpSocket>
 #include <QDataStream>
 #include <QFileDialog>
+#include <QTcpSocket>
 
 #include "core/settings.h"
 #include "core/transfer.h"
@@ -13,7 +13,7 @@
 
 namespace Transfer {
 
-class Download : public Item {
+class DownloadOld : public Item {
 	Q_OBJECT
 
 	/* Download object.
@@ -47,14 +47,14 @@ private:
 	QFile outfile;
 
 public:
-	Download (QAbstractSocket * connection)
+	DownloadOld (QAbstractSocket * connection)
 	    : Item (connection), socket (connection), socket_stream (socket) {
 		socket_stream.setVersion (Const::serializer_version);
 
 		connect (socket, static_cast<void (QAbstractSocket::*) (QAbstractSocket::SocketError)> (
 		                     &QAbstractSocket::error),
-		         this, &Download::on_socket_error);
-		connect (socket, &QAbstractSocket::readyRead, this, &Download::data_available);
+		         this, &DownloadOld::on_socket_error);
+		connect (socket, &QAbstractSocket::readyRead, this, &DownloadOld::data_available);
 
 		initiate_protocol ();
 	}
@@ -106,7 +106,7 @@ private:
 				return Icon::download ();
 			case Item::ButtonRole:
 				if (status == WaitingUserChoice)
-					return int (Item::ChangeDownloadPathButton);
+					return int(Item::ChangeDownloadPathButton);
 				break;
 			}
 		} break;
@@ -175,7 +175,7 @@ private:
 				Item::Buttons btns = Item::DeleteButton;
 				if (status == WaitingUserChoice)
 					btns |= Item::AcceptButton | Item::CancelButton;
-				return int (btns);
+				return int(btns);
 			} break;
 			}
 		} break;
@@ -208,7 +208,7 @@ private:
 				emit data_changed (FilenameField); // Removing button to change download filepath
 				return;
 			case CancelButton:
-				send_message (Message::Reject{});
+				send_message (MessageOld::Reject{});
 				socket->flush ();
 				socket->close ();
 				failure (tr ("Transfer cancelled"));
@@ -289,13 +289,13 @@ private:
 			failure (tr ("Cannot open destination file: ") + outfile.errorString ());
 			return;
 		}
-		send_message (Message::Accept{});
+		send_message (MessageOld::Accept{});
 	}
 
 	template <typename Msg> void send_message (const Msg & msg) {
-		auto s = Sizes::get_serialized_size (Msg::code (), msg);
-		Q_ASSERT (s <= Sizes::message_size_max);
-		socket_stream << static_cast<Sizes::MessageSize> (s) << Msg::code () << msg;
+		auto s = serialized_info.compute_size (Msg::code (), msg);
+		Q_ASSERT (s <= Message::max_size);
+		socket_stream << static_cast<Message::SizePrefixType> (s) << Msg::code () << msg;
 	}
 
 	bool check_datastream (void) {
@@ -310,7 +310,7 @@ private:
 
 	bool da_waiting_handshake (void) {
 		// Receiving handshake
-		if (socket->bytesAvailable () < sizes.handshake)
+		if (socket->bytesAvailable () < serialized_info.handshake_size)
 			return false;
 		std::remove_const<decltype (Const::protocol_magic)>::type magic;
 		std::remove_const<decltype (Const::protocol_version)>::type version;
@@ -333,9 +333,9 @@ private:
 	bool da_waiting_offer (void) {
 		// Read message size
 		if (next_message_size == -1) {
-			if (socket->bytesAvailable () < sizes.message_size)
+			if (socket->bytesAvailable () < serialized_info.message_size_prefix_size)
 				return false;
-			Sizes::MessageSize s;
+			Message::SizePrefixType s;
 			socket_stream >> s;
 			if (!check_datastream ())
 				return false;
@@ -345,15 +345,15 @@ private:
 		if (socket->bytesAvailable () < next_message_size)
 			return false;
 		next_message_size = -1;
-		Message::Code code;
+		Message::CodeType code;
 		socket_stream >> code;
 		if (!check_datastream ())
 			return false;
-		if (code != Message::Offer::code ()) {
+		if (code != MessageOld::Offer::code ()) {
 			failure (tr ("Protocol error"));
 			return false;
 		}
-		Message::Offer offer;
+		MessageOld::Offer offer;
 		socket_stream >> offer;
 		if (!check_datastream ())
 			return false;

@@ -13,7 +13,7 @@
 
 namespace Transfer {
 
-class Upload : public Item {
+class UploadOld : public Item {
 	Q_OBJECT
 
 	/* Upload object.
@@ -48,7 +48,7 @@ private:
 	QFile file;
 
 public:
-	Upload (const Peer & peer, const QString & filepath, const QString & our_username,
+	UploadOld (const Peer & peer, const QString & filepath, const QString & our_username,
 	        QObject * parent = nullptr)
 	    : Item (parent),
 	      peer (peer),
@@ -60,9 +60,9 @@ public:
 		// Socket
 		connect (&socket,
 		         static_cast<void (QTcpSocket::*) (QTcpSocket::SocketError)> (&QTcpSocket::error), this,
-		         &Upload::on_socket_error);
-		connect (&socket, &QTcpSocket::connected, this, &Upload::on_connected);
-		connect (&socket, &QTcpSocket::readyRead, this, &Upload::data_available);
+		         &UploadOld::on_socket_error);
+		connect (&socket, &QTcpSocket::connected, this, &UploadOld::on_connected);
+		connect (&socket, &QTcpSocket::readyRead, this, &UploadOld::data_available);
 
 		initiate_connection ();
 	}
@@ -239,16 +239,16 @@ private:
 	void start_transfering (void) {
 		set_status (Transfering);
 		emit data_changed (ProgressField);
-		connect (&socket, &QTcpSocket::bytesWritten, this, &Upload::socket_data_written);
+		connect (&socket, &QTcpSocket::bytesWritten, this, &UploadOld::socket_data_written);
 		if (!file.open (QIODevice::ReadOnly))
 			failure (tr ("Cannot open file:") + file.errorString ());
 		socket_data_written (0);
 	}
 
 	template <typename Msg> void send_message (const Msg & msg) {
-		auto s = Sizes::get_serialized_size (Msg::code (), msg);
-		Q_ASSERT (s <= Sizes::message_size_max);
-		socket_stream << static_cast<Sizes::MessageSize> (s) << Msg::code () << msg;
+		auto s = serialized_info.compute_size(Msg::code (), msg);
+		Q_ASSERT (s <= Message::max_size);
+		socket_stream << static_cast<Message::SizePrefixType> (s) << Msg::code () << msg;
 	}
 
 	bool check_datastream (void) {
@@ -263,7 +263,7 @@ private:
 
 	bool da_waiting_handshake (void) {
 		// Received handshake
-		if (socket.bytesAvailable () < sizes.handshake)
+		if (socket.bytesAvailable () < serialized_info.handshake_size)
 			return false;
 		std::remove_const<decltype (Const::protocol_magic)>::type magic;
 		std::remove_const<decltype (Const::protocol_version)>::type version;
@@ -281,16 +281,16 @@ private:
 			return false;
 		}
 		// Send upload request
-		send_message (Message::Offer{our_username, filename, file.size ()});
+		send_message (MessageOld::Offer{our_username, filename, file.size ()});
 		return true;
 	}
 
 	bool da_waiting_request_answer (void) {
 		// Read message size
 		if (next_message_size == -1) {
-			if (socket.bytesAvailable () < sizes.message_size)
+			if (socket.bytesAvailable () < serialized_info.message_size_prefix_size)
 				return false;
-			Sizes::MessageSize s;
+			Message::SizePrefixType s;
 			socket_stream >> s;
 			if (!check_datastream ())
 				return false;
@@ -300,16 +300,16 @@ private:
 		if (socket.bytesAvailable () < next_message_size)
 			return false;
 		next_message_size = -1;
-		Message::Code code;
+		Message::CodeType code;
 		socket_stream >> code;
 		if (!check_datastream ())
 			return false;
 		switch (code) {
-		case Message::Accept::code ():
+		case MessageOld::Accept::code ():
 			// No data to read
 			start_transfering ();
 			return true;
-		case Message::Reject::code ():
+		case MessageOld::Reject::code ():
 			// No data to read
 			failure (tr ("Transfer canceled by peer"));
 			return false;

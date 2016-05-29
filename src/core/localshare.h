@@ -29,8 +29,9 @@ constexpr auto service_type = "_localshare._tcp.";
 constexpr quint16 protocol_magic = 0x0CAA;
 constexpr auto serializer_version = QDataStream::Qt_5_0; // We are only compatible with Qt5 anyway
 constexpr auto hash_algorithm = QCryptographicHash::Md5;
-constexpr quint16 protocol_version = 1; // Must be bumped when var above change TODO 2
-constexpr auto chunk_size = qint64 (0x1) << 12; // TODO set by perf
+constexpr quint16 protocol_version = 0x2;
+constexpr auto chunk_size = qint64 (10000); // TODO adjust for perf. 10Ko ?
+constexpr auto write_buffer_size = qint64 (100000); // TODO same. 100Ko ?
 
 // Setup app object (graphical and console version)
 inline void setup (QCoreApplication & app) {

@@ -289,12 +289,12 @@ private slots:
 
 	void request_upload (const Peer & peer, const QString & filepath) {
 		auto upload =
-		    new Transfer::Upload (peer, filepath, local_peer->get_username (), transfer_list_model);
+		    new Transfer::UploadOld (peer, filepath, local_peer->get_username (), transfer_list_model);
 		transfer_list_model->append (upload);
 	}
 
 	void incoming_connection (QAbstractSocket * connection) {
-		auto download = new Transfer::Download (connection);
+		auto download = new Transfer::DownloadOld (connection);
 		transfer_list_model->append (download);
 	}
 

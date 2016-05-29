@@ -1,8 +1,10 @@
 #include "cli/main.h"
 #include "gui/main.h"
 
+#include "core/transfer.h"
+
 namespace Transfer {
-Sizes sizes; // Precompute sizes
+Serialized serialized_info;
 }
 
 int main (int argc, char * argv[]) {

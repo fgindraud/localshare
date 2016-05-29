@@ -16,7 +16,7 @@ qmake
 make
 ```
 
-Requires Qt >= 5.2, Bonjour support (see below) and c++11 compiler support.
+Requires Qt >= 5.2, Bonjour support (see below) and c++14 compiler support.
 Details about dependencies can be found in the `build/*/requirement.sh` files.
 
 Binaries can be found in the release section.
@@ -62,12 +62,11 @@ Done:
 	* transfers: working (basic)
 	* nice icons (credits to http://picol.org)
 * transfer protocol:
-	* file by file transfer
+	* use chunks and file mapping for perf
+	* can send directories or simple files
 
 Todo:
 * transfer protocol:
-	* improve perf (map file, chunks, ...)
-	* directories
 	* pre filter stuff in Transfer::Server before showing it
 * get attention if minimized (modified icon / OS specific way)
 * console interface ?
