@@ -3,6 +3,7 @@
 #define CORE_DISCOVERY_H
 
 #include <QHostInfo>
+#include <QHostAddress>
 #include <QSocketNotifier>
 #include <QString>
 #include <QTime>
@@ -13,7 +14,6 @@
 
 #include "compatibility.h"
 #include "core/localshare.h"
-#include "core/settings.h"
 
 namespace Discovery {
 /* Service name vs Username.
@@ -78,27 +78,28 @@ public:
 };
 
 /* LocalDnsPeer represents the local instance of localshare.
- *
- * service_name is the current service name.
- * If modified (
+ * It is a record containing the server port and username information.
+ * It stores the requested username (value from settings), and the actual zeroconf username.
+ * For both, is also provides the service name which adds a machine specific suffix.
+ * (it avoids name conflicts)
  */
 class LocalDnsPeer : public QObject {
 	Q_OBJECT
 
 private:
 	QString suffix;
-	Settings::Username requested_username;
+	QString requested_username;
 	QString service_name;
-	const quint16 port; // Host byte order
+	quint16 port{0}; // Host byte order
 
 signals:
+	void requested_username_changed (void);
 	void requested_service_name_changed (void);
 	void username_changed (void);
 	void service_name_changed (void);
 
 public:
-	LocalDnsPeer (quint16 server_port, QObject * parent = nullptr)
-	    : QObject (parent), port (server_port) {
+	LocalDnsPeer (QObject * parent = nullptr) : QObject (parent) {
 		// Suffix is hostname, or a random number stringified if not available
 		suffix = QHostInfo::localHostName ();
 		if (suffix.isEmpty ()) {
@@ -107,13 +108,12 @@ public:
 		}
 	}
 
-	QString get_requested_username (void) { return requested_username.get (); }
-	QString get_requested_service_name (void) {
-		return service_name_of (get_requested_username (), suffix);
-	}
+	QString get_requested_username (void) { return requested_username; }
+	QString get_requested_service_name (void) { return service_name_of (requested_username, suffix); }
 	void set_requested_username (const QString & new_username) {
-		if (get_requested_username () != new_username) {
-			requested_username.set (new_username);
+		if (requested_username != new_username) {
+			requested_username = new_username;
+			emit requested_username_changed ();
 			emit requested_service_name_changed (); // Guaranteed to be changed
 		}
 	}
@@ -130,6 +130,11 @@ public:
 			emit username_changed (); // May not change if only suffix is changed
 	}
 
+	void set_port (quint16 new_port) {
+		if (port != new_port) {
+			port = new_port;
+		}
+	}
 	quint16 get_port (void) const { return port; }
 };
 
@@ -268,7 +273,7 @@ class ServiceRecord : public DnsSocket {
 public:
 	ServiceRecord (LocalDnsPeer * local_peer) : DnsSocket (local_peer) {
 		auto name = local_peer->get_requested_service_name ();
-		qDebug ("ServiceRecord[%p]: registering \"%s\"", this, qPrintable (name));
+		qDebug ("ServiceRecord[%p]: registering \"%s\"", this, qUtf8Printable (name));
 		init_with (DNSServiceRegister, 0 /* flags */, 0 /* any interface */, qUtf8Printable (name),
 		           qUtf8Printable (Const::service_type), nullptr /* default domain */,
 		           nullptr /* default hostname */,
@@ -394,7 +399,7 @@ private:
 			connect (r, &Resolver::peer_resolved, c, &Browser::peer_resolved);
 			connect (r, &Resolver::being_destroyed, [=](const QString & msg) {
 				if (!msg.isEmpty ())
-					qWarning ("Browser[%p]: Resolver failure: %s", c, qPrintable (msg));
+					qWarning ("Browser[%p]: Resolver failure: %s", c, qUtf8Printable (msg));
 			});
 		} else {
 			// Peer is removed
@@ -409,17 +414,17 @@ private slots:
 	void peer_resolved (DnsPeer * peer) {
 		if (auto p = find_peer_by_service_name (peer->get_service_name ())) {
 			// Update, and let peer be discarded
-			qDebug ("Browser[%p]: updating \"%s\"", this, qPrintable (peer->get_service_name ()));
+			qDebug ("Browser[%p]: updating \"%s\"", this, qUtf8Printable (peer->get_service_name ()));
 			p->set_hostname (peer->get_hostname ());
 			p->set_port (peer->get_port ());
 		} else {
 			// Add and take ownership
 			if (get_local_peer ()->get_service_name () != peer->get_service_name ()) {
-				qDebug ("Browser[%p]: adding \"%s\"", this, qPrintable (peer->get_service_name ()));
+				qDebug ("Browser[%p]: adding \"%s\"", this, qUtf8Printable (peer->get_service_name ()));
 				peer->setParent (this);
 				emit added (peer);
 			} else {
-				qDebug ("Browser[%p]: ignoring \"%s\"", this, qPrintable (peer->get_service_name ()));
+				qDebug ("Browser[%p]: ignoring \"%s\"", this, qUtf8Printable (peer->get_service_name ()));
 			}
 		}
 	}
@@ -428,7 +433,7 @@ private slots:
 		// Stop tracking our own service record
 		if (auto p = find_peer_by_service_name (get_local_peer ()->get_service_name ())) {
 			qDebug ("Brower[%p]: removing local_peer \"%s\"", this,
-			        qPrintable (get_local_peer ()->get_service_name ()));
+			        qUtf8Printable (get_local_peer ()->get_service_name ()));
 			p->deleteLater ();
 		}
 	}
@@ -447,6 +452,21 @@ private:
 
 	LocalDnsPeer * get_local_peer (void) { return qobject_cast<LocalDnsPeer *> (parent ()); }
 };
+
+/* Dns resolving (QHostInfo).
+ */
+inline QHostAddress get_resolved_address (const QHostInfo & info) {
+	if (info.error () != QHostInfo::NoError) {
+		qWarning ("Error: Ip address resolution for \"%s\" failed: %s",
+		          qUtf8Printable (info.hostName ()), qUtf8Printable (info.errorString ()));
+		return QHostAddress ();
+	}
+	if (info.addresses ().isEmpty ()) {
+		qCritical ("Error: successful Ip address resolution contains no addresses !");
+		return QHostAddress ();
+	}
+	return info.addresses ().first ();
+}
 }
 
 #endif

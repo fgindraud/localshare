@@ -7,8 +7,8 @@
 #include <QDataStream>
 #include <QTcpSocket>
 #include <limits>
-#include <type_traits>
 #include <tuple>
+#include <type_traits>
 
 #include "core/localshare.h"
 #include "core/payload.h"
@@ -188,8 +188,8 @@ signals:
 	void failed (void);
 
 public:
-	Base (QAbstractSocket * socket_, QObject * parent = nullptr)
-	    : QObject (parent), socket (socket_), stream (socket) {
+	Base (QAbstractSocket * socket_, const QString & peer_username, QObject * parent = nullptr)
+	    : QObject (parent), socket (socket_), stream (socket), peer_username (peer_username) {
 		socket->setParent (this);
 		stream.setVersion (Const::serializer_version);
 		connect (socket, static_cast<void (QAbstractSocket::*) (QAbstractSocket::SocketError)> (
@@ -199,6 +199,7 @@ public:
 		connect (socket, &QAbstractSocket::disconnected, this, &Base::on_socket_disconnected);
 		connect (socket, &QAbstractSocket::readyRead, this, &Base::on_data_received);
 	}
+	Base (QAbstractSocket * socket, QObject * parent = nullptr) : Base (socket, QString (), parent) {}
 
 	QString get_error (void) const { return error; }
 
@@ -206,6 +207,7 @@ public:
 	QString get_connection_info (void) const {
 		return tr ("%1 on port %2").arg (socket->peerAddress ().toString ()).arg (socket->peerPort ());
 	}
+	const Payload::Manager & get_payload (void) const { return payload; }
 
 private slots:
 	void on_socket_error (QAbstractSocket::SocketError) {
@@ -220,7 +222,8 @@ private slots:
 
 protected slots:
 	void on_socket_connected (void) { send_handshake (); }
-	virtual void on_socket_disconnected (void) = 0;
+	virtual void on_socket_disconnected (void) { /* TODO do something with it ? */
+	}
 
 protected:
 	void failure (const QString & reason, FailureMode mode = SendNoticeAndCloseMode) {
@@ -240,7 +243,7 @@ protected:
 		qWarning ("Protocol error: %s", details);
 		failure (tr ("Protocol error"), AbortMode);
 	}
-	void protocol_error (const QString & details) { protocol_error (qPrintable (details)); }
+	void protocol_error (const QString & details) { protocol_error (qUtf8Printable (details)); }
 
 	bool check_stream (void) {
 		switch (stream.status ()) {
@@ -281,7 +284,13 @@ protected:
 	}
 	bool receive_offer (void) {
 		stream >> std::tie (peer_username, payload);
-		return check_stream ();
+		if (!check_stream ())
+			return false;
+		if (!payload.validate ()) {
+			failure (tr ("Peer offer is invalid: %1").arg (payload.get_last_error ()), AbortMode);
+			return false;
+		}
+		return true;
 	}
 
 	bool send_next_chunk (void) {
@@ -438,14 +447,22 @@ signals:
 	void status_changed (Status new_status, Status old_status);
 
 public:
-	Upload (const QString & our_username, QObject * parent = nullptr)
-	    : Base (new QTcpSocket, parent), our_username (our_username), status (Init) {}
+	Upload (const QString & peer_username, const QString & our_username, QObject * parent = nullptr)
+	    : Base (new QTcpSocket, peer_username, parent), our_username (our_username), status (Init) {}
 
-	void start (const Peer & peer, const QString & file_path_to_send) {
-		socket->connectToHost (peer.address, peer.port);
+	bool set_payload (const QString & file_path_to_send) {
+		// TODO setting for hidden files ?
+		if (!payload.from_source_path (file_path_to_send, true)) {
+			failure (tr ("Cannot get file information: %1").arg (payload.get_last_error ()), AbortMode);
+			return false;
+		}
+		return true;
+	}
+
+	void connect (const QHostAddress & address, quint16 port) {
+		Q_ASSERT (payload.get_type () != Payload::Manager::Invalid);
+		socket->connectToHost (address, port);
 		set_status (Starting);
-		if (!payload.from_source_path (file_path_to_send, true)) // TODO setting for hidden files ?
-			failure (tr ("Cannot get file information: %1").arg (payload.get_last_error ()));
 	}
 
 	Status get_status (void) const { return status; }

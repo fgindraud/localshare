@@ -6,10 +6,10 @@
 #include <QDataStream>
 #include <QDateTime>
 #include <QDir>
+#include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
 #include <QObject>
-#include <QQueue>
 #include <list>
 #include <memory>
 
@@ -49,18 +49,16 @@ private:
 
 public:
 	File () = default;
-	File (const QFileInfo & file_info, const QString & rel_path)
-	    : file_path (rel_path + "/" + file_info.fileName ()),
+	File (const QFileInfo & file_info, const QDir & payload_dir)
+	    : file_path (payload_dir.relativeFilePath (file_info.filePath ())),
 	      size (file_info.size ()),
 	      last_modified (file_info.lastModified ()) {}
 
 	QString get_last_error (void) const { return last_error; }
 	bool at_end (void) const { return pos == size; }
 
-	QString get_file_path (void) const { return file_path; }
+	QString get_relative_path (void) const { return file_path; }
 	qint64 get_size (void) const { return size; }
-
-	void set_file_path (const QString & path) { file_path = path; }
 
 	// Only export/import filename and size
 	void to_stream (QDataStream & stream) const { stream << file_path << size; }
@@ -69,6 +67,10 @@ public:
 		QDebugStateSaver saver (debug);
 		debug.nospace () << "File(" << file_path << ", " << size << ")";
 		return debug;
+	}
+	bool validate_path (void) const {
+		// Check path is not out of target dir tree
+		return QDir::isRelativePath (file_path) && !file_path.contains ("..");
 	}
 
 	// Hash export / import-check
@@ -84,9 +86,9 @@ public:
 
 	// QIODevice similar open & close
 
-	bool open (const QString & root_dir_path, QIODevice::OpenMode mode) {
+	bool open (const QDir & payload_dir, QIODevice::OpenMode mode) {
 		Q_ASSERT (mode == QIODevice::ReadOnly || mode == QIODevice::ReadWrite);
-		QFileInfo info (root_dir_path + "/" + file_path);
+		QFileInfo info (payload_dir.filePath (file_path));
 		if (mode == QIODevice::ReadOnly) {
 			// Check file didn't change
 			if (info.size () != size || info.lastModified () != last_modified) {
@@ -173,20 +175,35 @@ public:
 /* Represent file and dirs.
  * Perform conversion between Dirs/files <-> data chunks (protocol)
  *
- * Is attached to a root dir (target or source).
- * It has a list of files handles (with paths relative to root).
+ * A payload is a set of files in a directory tree.
+ * <payload_root> is the root of this directory tree (must be single dir name).
+ * For a single file transfer, payload is one file at <payload_root> (which is ".").
+ * A local <root_dir> indicates the position of the payload in the file system.
+ *
+ * Summary:
+ * Abs path of file = <root_dir>/<payload_root>/<file_relative_path>
+ * Payload is the set of <payload_root>/<file_relative_path> for each file.
+ * <root_dir> is always absolute, and is the local payload position (source or dest).
+ * <payload_root> must be either a single dir_name or "."
+ * get_payload_dir() returns the local <root_dir>/<payload_root>
+ *
+ * All absolute file paths must stay in <root_dir>/<payload_root>.
+ * Otherwise this is a security breach (writing to arbitrary user files...).
+ * Constraints (validated by validate()):
+ * - <payload_root> is a simple dir_name (no ".." or "/").
+ * - any <file_relative_path> must be relative and have no "..".
  *
  * The sender will user next_chunk_size () and send_next_chunk () to send chunks until stop.
  * Call receive chunk with chunk size until total_transfered==total_size.
- *
- * This class never checks the status of the stream object.
+ * Checksums must be transfered and tested to complete the transfer.
+ * Note: This class never checks the status of the stream object.
  *
  * TODO ability to set a position (for restarts) ?
- * TODO user setReadBufferSize on sockets (limit for protection)
  */
 class Manager : public Streamable, public Debugable {
 public:
 	enum Mode { Closed, Sending, Receiving };
+	enum PayloadType { Invalid, SingleFile, Directory };
 	using Checksum = QByteArray;
 	using ChecksumList = QList<Checksum>;
 
@@ -196,92 +213,105 @@ private:
 	QString last_error;
 
 	// Transfer display information
-	QString transfer_name;
 	qint64 total_size{0};
+	// transfer name and fullpath are recomputed
 
-	QString root_dir_path;
+	QDir root_dir;        // Should always store an absolute path
+	QString payload_root; // '.' for SingleFile, '<dir>' for Directory
 	FileList files;
 
 	// Progress
 	Mode transfer_status{Closed};
-	FileList::iterator current_file;
-	FileList::iterator next_file_to_checksum;
-	qint64 total_transfered;
+	FileList::iterator current_file{files.end ()};
+	FileList::iterator next_file_to_checksum{files.end ()};
+	qint64 total_transfered{0};
+	int nb_files_transfered{0};
 
 public:
 	QString get_last_error (void) const { return last_error; }
 
-	QString get_transfer_name (void) const { return transfer_name; }
 	qint64 get_total_size (void) const { return total_size; }
-	QString get_root_dir (void) const { return root_dir_path; }
+	qint64 get_total_transfered_size (void) const { return total_transfered; }
+	int get_nb_files (void) const { return int(files.size ()); }
+	int get_nb_files_transfered (void) const { return nb_files_transfered; }
 
-	void set_root_dir (const QString & path) {
+	const QDir & get_root_dir (void) const { return root_dir; }
+	bool set_root_dir (const QString & dir_path) {
+		// For external use (cleans the path)
 		Q_ASSERT (transfer_status == Closed);
-		root_dir_path = path;
+		auto cleaned_dir_path = QFileInfo (dir_path).canonicalFilePath ();
+		if (cleaned_dir_path.isEmpty ()) {
+			last_error = QObject::tr ("Invalid path: %1").arg (dir_path);
+			return false;
+		}
+		root_dir.setPath (cleaned_dir_path);
+		return true;
 	}
 
-	// Special cases for a single file transfer
-	bool is_simple_file_transfer (void) const {
-		return files.size () == 1 && QFileInfo (files.front ().get_file_path ()).path () == ".";
+	PayloadType get_type (void) const {
+		if (payload_root.isEmpty ())
+			return Invalid;
+		else if (payload_root == ".")
+			return SingleFile;
+		else
+			return Directory;
 	}
-	void set_target_file (const QString & file_path) {
-		Q_ASSERT (is_simple_file_transfer ());
-		QFileInfo info (QFileInfo (file_path).canonicalFilePath ());
-		set_root_dir (info.path ());
-		files.front ().set_file_path (info.fileName ());
+	QString get_payload_name (void) const {
+		switch (get_type ()) {
+		case SingleFile:
+			return files.front ().get_relative_path ();
+		case Directory:
+			return payload_root + QDir::separator ();
+		default:
+			return QString ();
+		}
 	}
-	QString get_target_file_path (void) const {
-		Q_ASSERT (is_simple_file_transfer ());
-		return QFileInfo (root_dir_path + "/" + files.front ().get_file_path ()).canonicalFilePath ();
+	QString get_payload_dir_display (void) const {
+		switch (get_type ()) {
+		case SingleFile:
+			return QDir::toNativeSeparators (root_dir.filePath (files.front ().get_relative_path ()));
+		case Directory:
+			return QDir::toNativeSeparators (get_payload_dir ().path ()) + QDir::separator ();
+		default:
+			return QString ();
+		}
 	}
 
 	// File list management
 
 	bool from_source_path (const QString & path, bool ignore_hidden) {
 		Q_ASSERT (transfer_status == Closed);
-		Q_ASSERT (total_size == 0); // Should only be called once
+		Q_ASSERT (get_type () == Invalid); // Should only be called once
 		auto cleaned_path = QFileInfo (path).canonicalFilePath ();
 		if (cleaned_path.isEmpty ()) {
 			last_error = QObject::tr ("Invalid path: %1").arg (path);
 			return false;
 		}
 		QFileInfo path_info (cleaned_path);
-		set_root_dir (path_info.path ());
+		root_dir = path_info.dir ();
 		if (path_info.isFile ()) {
-			files.emplace_back (path_info, ".");
+			payload_root = ".";
+			files.emplace_back (path_info, root_dir);
 			total_size += path_info.size ();
-			transfer_name = path_info.fileName ();
 			return true;
 		} else if (path_info.isDir ()) {
-			auto root_dir = path_info.dir ();
-			auto filter_flags =
-			    QDir::AllDirs | QDir::Files | QDir::NoSymLinks | QDir::NoDotAndDotDot | QDir::Readable;
+			payload_root = path_info.fileName ();
+			auto payload_dir = get_payload_dir ();
+			// Recursively search dirs for files
+			auto filter_flags = QDir::Files | QDir::NoSymLinks | QDir::NoDotAndDotDot | QDir::Readable;
 			if (!ignore_hidden)
 				filter_flags |= QDir::Hidden;
-			root_dir.setFilter (filter_flags);
-			root_dir.setSorting (QDir::Size | QDir::Reversed); // Small files first
-			// Recursively search dirs for files
-			QQueue<QString> relative_paths_to_search;
-			relative_paths_to_search.enqueue (path_info.fileName ());
-			while (!relative_paths_to_search.isEmpty ()) {
-				auto rel_path = relative_paths_to_search.dequeue ();
-				QDir dir{root_dir};
-				if (!dir.cd (rel_path))
-					continue;
-				for (const auto & entry : dir.entryInfoList ()) {
-					if (entry.isFile ()) {
-						files.emplace_back (entry, rel_path);
-						total_size += entry.size ();
-					} else if (entry.isDir ()) {
-						relative_paths_to_search.enqueue (rel_path + "/" + entry.fileName ());
-					}
-				}
+			QDirIterator it (path_info.filePath (), filter_flags, QDirIterator::Subdirectories);
+			while (it.hasNext ()) {
+				// TODO for every N-th iterations processevents
+				QFileInfo entry (it.next ());
+				files.emplace_back (entry, payload_dir);
+				total_size += entry.size ();
 			}
 			if (files.empty ()) {
 				last_error = QObject::tr ("No file found in directory: %1").arg (path);
 				return false;
 			}
-			transfer_name = path_info.fileName () + "/";
 			return true;
 		} else {
 			last_error = QObject::tr ("Path is neither a file nor a directory: %1").arg (path);
@@ -292,15 +322,16 @@ public:
 	// Import/export. File class is not movable nor copyable, so extra care is needed.
 
 	void to_stream (QDataStream & stream) const {
-		stream << transfer_name << total_size << quint32 (files.size ());
+		Q_ASSERT (get_type () != Invalid);
+		stream << payload_root << total_size << quint32 (files.size ());
 		for (const auto & f : files)
 			stream << f;
 	}
 	void from_stream (QDataStream & stream) {
 		Q_ASSERT (transfer_status == Closed);
-		Q_ASSERT (files.size () == 0); // Should only be called once
+		Q_ASSERT (get_type () == Invalid); // Should only be called once
 		quint32 c;
-		stream >> transfer_name >> total_size >> c;
+		stream >> payload_root >> total_size >> c;
 		files.clear ();
 		for (quint32 i = 0; i < c; ++i) {
 			files.emplace_back ();
@@ -309,19 +340,32 @@ public:
 	}
 	QDebug to_debug (QDebug debug) const {
 		QDebugStateSaver saver (debug);
-		debug.nospace () << "Manager(" << transfer_name << ", " << total_size << ") {\n";
+		debug.nospace () << "Manager(root_dir=" << root_dir.path () << ", root=" << payload_root
+		                 << ", nb_files=" << files.size () << ", total_size=" << total_size << ") {\n";
 		for (const auto & f : files)
 			debug << '\t' << f << '\n';
 		return debug << '}';
+	}
+	bool validate (void) const {
+		if (payload_root.contains ("..") || payload_root.contains ('/') || payload_root.contains ('\\'))
+			return false;
+		if (files.empty ())
+			return false;
+		for (auto & f : files)
+			if (!f.validate_path ())
+				return false;
+		return true;
 	}
 
 	// Send / receive next chunk and checksums
 
 	void start_transfer (Mode mode) {
+		Q_ASSERT (get_type () != Invalid);
 		Q_ASSERT (transfer_status == Closed);
 		Q_ASSERT (mode != Closed);
 		transfer_status = mode;
 		total_transfered = 0;
+		nb_files_transfered = 0;
 		current_file = next_file_to_checksum = files.begin ();
 	}
 
@@ -337,8 +381,6 @@ public:
 		return transfer_status == Closed && last_error.isEmpty () && total_transfered == total_size;
 	}
 
-	qint64 get_total_transfered_size (void) const { return total_transfered; }
-
 	qint64 next_chunk_size (void) const {
 		// Chunk are all of size Const::chunk_size, except the last which is truncated
 		// 0 means no more to transfer
@@ -350,8 +392,10 @@ public:
 		auto bytes_to_send = next_chunk_size ();
 		while (bytes_to_send > 0) {
 			Q_ASSERT (total_transfered <= total_size);
+			Q_ASSERT (nb_files_transfered <= get_nb_files ());
 			Q_ASSERT (current_file != files.end ()); // Should stop due to size test
-			if (!current_file->is_open () && !current_file->open (root_dir_path, QIODevice::ReadOnly)) {
+			if (!current_file->is_open () &&
+			    !current_file->open (get_payload_dir (), QIODevice::ReadOnly)) {
 				transfer_error (current_file->get_last_error ());
 				return false;
 			}
@@ -385,7 +429,8 @@ public:
 		while (bytes_to_receive > 0) {
 			Q_ASSERT (total_transfered <= total_size);
 			Q_ASSERT (current_file != files.end ()); // Should stop due to size test
-			if (!current_file->is_open () && !current_file->open (root_dir_path, QIODevice::ReadWrite)) {
+			if (!current_file->is_open () &&
+			    !current_file->open (get_payload_dir (), QIODevice::ReadWrite)) {
 				transfer_error (current_file->get_last_error ());
 				return false;
 			}
@@ -412,8 +457,10 @@ public:
 	ChecksumList take_pending_checksums (void) {
 		ChecksumList checksums;
 		// We can only send checksums if files have been processed
-		for (; next_file_to_checksum != current_file; ++next_file_to_checksum)
+		for (; next_file_to_checksum != current_file; ++next_file_to_checksum) {
 			checksums.append (next_file_to_checksum->get_checksum ());
+			++nb_files_transfered;
+		}
 		return checksums;
 	}
 
@@ -428,14 +475,19 @@ public:
 				last_error = next_file_to_checksum->get_last_error ();
 				return false;
 			}
-			next_file_to_checksum++;
+			++next_file_to_checksum;
+			++nb_files_transfered;
 		}
-		if (next_file_to_checksum == files.end ())
+		if (next_file_to_checksum == files.end ()) {
+			Q_ASSERT (nb_files_transfered == get_nb_files ());
 			stop_transfer (); // Last file ok
+		}
 		return true;
 	}
 
 private:
+	QDir get_payload_dir (void) const { return QDir (root_dir.filePath (payload_root)); }
+
 	void transfer_error (const QString & why) {
 		last_error = why;
 		stop_transfer ();

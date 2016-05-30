@@ -13,11 +13,11 @@
 #include <QUrl>
 #include <limits>
 
-#include "core/localshare.h"
 #include "core/discovery.h"
-#include "gui/style.h"
+#include "core/localshare.h"
 #include "gui/button_delegate.h"
 #include "gui/struct_item_model.h"
+#include "gui/style.h"
 
 namespace PeerList {
 
@@ -126,8 +126,9 @@ public:
 
 private slots:
 	void address_lookup_complete (const QHostInfo & info) {
-		if (info.error () == QHostInfo::NoError && !info.addresses ().isEmpty ()) {
-			peer.address = info.addresses ().first ();
+		auto address = Discovery::get_resolved_address (info);
+		if (!address.isNull ()) {
+			peer.address = address;
 			edited_data (AddressField);
 		}
 	}
@@ -185,8 +186,9 @@ public:
 
 private slots:
 	void address_lookup_complete (const QHostInfo & info) {
-		if (info.error () == QHostInfo::NoError && !info.addresses ().isEmpty ()) {
-			peer.address = info.addresses ().first ();
+		auto address = Discovery::get_resolved_address (info);
+		if (!address.isNull ()) {
+			peer.address = address;
 			edited_data (AddressField);
 		}
 	}

@@ -21,13 +21,13 @@
 #include <QSplitter>
 
 #include "core/localshare.h"
-#include "core/settings.h"
 #include "core/server.h"
+#include "core/settings.h"
 #include "gui/discovery_subsystem.h"
-#include "gui/style.h"
 #include "gui/peer_list.h"
-#include "gui/transfer_list.h"
+#include "gui/style.h"
 #include "gui/transfer_download.h"
+#include "gui/transfer_list.h"
 #include "gui/transfer_upload.h"
 
 /* Main window of application.
@@ -56,12 +56,16 @@ public:
 	Window (QWidget * parent = nullptr) : QMainWindow (parent) {
 		{
 			// Start Server
-			auto server = new Transfer::Server (this);
-			connect (server, &Transfer::Server::new_connection, this, &Window::incoming_connection);
+			auto server = new Transfer::ServerOld (this);
+			connect (server, &Transfer::ServerOld::new_connection, this, &Window::incoming_connection);
 
 			// Local peer
 			using Discovery::LocalDnsPeer;
-			local_peer = new LocalDnsPeer (server->port (), this);
+			local_peer = new LocalDnsPeer (this);
+			local_peer->set_port (server->port ());
+			local_peer->set_requested_username (Settings::Username ().get ());
+			connect (local_peer, &LocalDnsPeer::requested_username_changed,
+			         [=] { Settings::Username ().set (local_peer->get_requested_username ()); });
 			connect (local_peer, &LocalDnsPeer::username_changed, this, &Window::set_window_title);
 
 			// Restartable discovery system

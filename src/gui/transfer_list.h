@@ -4,12 +4,13 @@
 
 #include <QApplication>
 #include <QFlags>
+#include <QHeaderView>
 #include <QStyle>
 #include <QStyleOptionProgressBar>
 #include <QStyledItemDelegate>
 #include <QTreeView>
-#include <QHeaderView>
 
+#include "core/localshare.h"
 #include "gui/button_delegate.h"
 #include "gui/struct_item_model.h"
 #include "gui/style.h"
@@ -78,25 +79,6 @@ public slots:
 			return get_item_t<Item *> (index)->button_clicked (index.column (), Item::Button (btn));
 	}
 };
-
-inline QString size_to_string (qint64 size) {
-	// Find correct unit to fit size.
-	double num = size;
-	double increment = 1024.0;
-	static QString suffixes[] = {QObject::tr ("B"),
-	                             QObject::tr ("KiB"),
-	                             QObject::tr ("MiB"),
-	                             QObject::tr ("GiB"),
-	                             QObject::tr ("TiB"),
-	                             QObject::tr ("PiB"),
-	                             {}};
-	int unit_idx = 0;
-	while (num >= increment && !suffixes[unit_idx + 1].isEmpty ()) {
-		unit_idx++;
-		num /= increment;
-	}
-	return QString ().setNum (num, 'f', 2) + suffixes[unit_idx];
-}
 
 /* Paints a progressbar for the Progress field.
  */

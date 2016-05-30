@@ -8,7 +8,7 @@
 
 namespace Transfer {
 
-class Server : public QObject {
+class ServerOld : public QObject {
 	Q_OBJECT
 
 	/* Server object.
@@ -22,7 +22,7 @@ signals:
 	void new_connection (QAbstractSocket * socket);
 
 public:
-	Server (QObject * parent = nullptr) : QObject (parent) {
+	ServerOld (QObject * parent = nullptr) : QObject (parent) {
 		server.listen (); // any port
 		connect (&server, &QTcpServer::newConnection, [this] {
 			auto socket = server.nextPendingConnection ();

@@ -7,8 +7,8 @@
 #include <QCryptographicHash>
 #include <QDataStream>
 #include <QDebug>
-#include <type_traits>
 #include <tuple>
+#include <type_traits>
 
 #include <QHostAddress>
 
@@ -93,14 +93,14 @@ void from_stream (QDataStream & stream, Head & h, Tail &... tail) {
 
 // Make std::tuple QDataStream compatible
 namespace Impl {
-	template <typename... Types, std::size_t... I>
-	void to_stream (QDataStream & stream, const std::tuple<Types...> & tuple, IndexSequence<I...>) {
-		to_stream (stream, std::get<I> (tuple)...);
-	}
-	template <typename... Types, std::size_t... I>
-	void from_stream (QDataStream & stream, const std::tuple<Types...> & tuple, IndexSequence<I...>) {
-		from_stream (stream, std::get<I> (tuple)...);
-	}
+template <typename... Types, std::size_t... I>
+void to_stream (QDataStream & stream, const std::tuple<Types...> & tuple, IndexSequence<I...>) {
+	to_stream (stream, std::get<I> (tuple)...);
+}
+template <typename... Types, std::size_t... I>
+void from_stream (QDataStream & stream, const std::tuple<Types...> & tuple, IndexSequence<I...>) {
+	from_stream (stream, std::get<I> (tuple)...);
+}
 }
 template <typename... Types>
 inline QDataStream & operator<< (QDataStream & stream, const std::tuple<Types...> & tuple) {
@@ -122,5 +122,25 @@ struct Peer {
 	QHostAddress address;
 	quint16 port; // Stored in host byte order
 };
+
+/* Print file size with the right suffix.
+ */
+inline QString size_to_string (qint64 size) {
+	double num = size;
+	double increment = 1024.0;
+	static QString suffixes[] = {QObject::tr ("B"),
+	                             QObject::tr ("KiB"),
+	                             QObject::tr ("MiB"),
+	                             QObject::tr ("GiB"),
+	                             QObject::tr ("TiB"),
+	                             QObject::tr ("PiB"),
+	                             {}};
+	int unit_idx = 0;
+	while (num >= increment && !suffixes[unit_idx + 1].isEmpty ()) {
+		unit_idx++;
+		num /= increment;
+	}
+	return QString ().setNum (num, 'f', 2) + suffixes[unit_idx];
+}
 
 #endif
