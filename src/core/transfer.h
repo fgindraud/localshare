@@ -158,8 +158,9 @@ extern Serialized serialized_info; // Global precomputed size info (defined in m
  * Functions to send/receive messages are provided.
  * It centralizes error reporting.
  *
+ * TODO progress indicator
  * TODO rate computation (instant, overall) ?
- * TODO test it with batch mode ?
+ * TODO limit read buffer size
  */
 class Base : public QObject {
 	Q_OBJECT
@@ -198,6 +199,7 @@ public:
 		connect (socket, &QAbstractSocket::connected, this, &Base::on_socket_connected);
 		connect (socket, &QAbstractSocket::disconnected, this, &Base::on_socket_disconnected);
 		connect (socket, &QAbstractSocket::readyRead, this, &Base::on_data_received);
+		connect (socket, &QAbstractSocket::bytesWritten, this, &Base::on_data_written);
 	}
 	Base (QAbstractSocket * socket, QObject * parent = nullptr) : Base (socket, QString (), parent) {}
 
@@ -210,8 +212,8 @@ public:
 	const Payload::Manager & get_payload (void) const { return payload; }
 
 private slots:
-	void on_socket_error (QAbstractSocket::SocketError) {
-		failure (tr ("Network error: %1").arg (socket->errorString (), AbortMode));
+	void on_socket_error (void) {
+		failure (tr ("Network error: %1").arg (socket->errorString ()), AbortMode);
 	}
 	void on_data_received (void) {
 		if (status == WaitingForHandshake && !receive_handshake ())
@@ -222,8 +224,8 @@ private slots:
 
 protected slots:
 	void on_socket_connected (void) { send_handshake (); }
-	virtual void on_socket_disconnected (void) { /* TODO do something with it ? */
-	}
+	virtual void on_socket_disconnected (void) {}
+	virtual void on_data_written (void) {}
 
 protected:
 	void failure (const QString & reason, FailureMode mode = SendNoticeAndCloseMode) {
@@ -231,10 +233,12 @@ protected:
 		error = reason;
 		if (mode == SendNoticeAndCloseMode)
 			send_content_message (Message::Error, error);
-		if (mode == AbortMode)
+		if (mode == AbortMode) {
 			socket->abort ();
-		else
+		} else {
+			socket->flush ();
 			socket->disconnectFromHost ();
+		}
 		payload.stop_transfer ();
 		emit failed ();
 	}
@@ -306,9 +310,8 @@ protected:
 			return false;
 		// Send checksums if any
 		auto checksums = payload.take_pending_checksums ();
-		if (!checksums.empty ()) {
+		if (!checksums.empty ())
 			return send_content_message (Message::Checksums, checksums);
-		}
 		return true;
 	}
 	bool receive_next_chunk (void) {
@@ -374,12 +377,14 @@ private:
 			if (!check_stream ())
 				return false;
 			switch (next_msg_code) {
+			// After: get size
 			case Message::Error:
 			case Message::Offer:
 			case Message::Chunk:
 			case Message::Checksums:
 				status = WaitingForSize;
 				break;
+			// After : get next message code
 			case Message::Accept:
 				return on_receive_accept ();
 			case Message::Reject:
@@ -408,17 +413,22 @@ private:
 				return false;
 			switch (next_msg_code) {
 			case Message::Error: {
+				// After : nothing
 				QString error_msg;
 				stream >> error_msg;
 				if (check_stream ())
 					failure (tr ("Peer failed with: %1").arg (error_msg), CloseMode);
 				return false;
 			}
+			// After : get next message code
 			case Message::Offer:
+				status = WaitingForCode;
 				return on_receive_offer ();
 			case Message::Chunk:
+				status = WaitingForCode;
 				return on_receive_chunk ();
 			case Message::Checksums:
+				status = WaitingForCode;
 				return on_receive_checksums ();
 			default:
 				Q_UNREACHABLE ();
@@ -444,11 +454,13 @@ private:
 	Status status;
 
 signals:
-	void status_changed (Status new_status, Status old_status);
+	void status_changed (Status new_status);
 
 public:
 	Upload (const QString & peer_username, const QString & our_username, QObject * parent = nullptr)
-	    : Base (new QTcpSocket, peer_username, parent), our_username (our_username), status (Init) {}
+	    : Base (new QTcpSocket, peer_username, parent), our_username (our_username), status (Init) {
+		QObject::connect (this, &Base::failed, [this] { set_status (Error); });
+	}
 
 	bool set_payload (const QString & file_path_to_send) {
 		// TODO setting for hidden files ?
@@ -469,9 +481,8 @@ public:
 
 private:
 	void set_status (Status new_status) {
-		auto old = status;
 		status = new_status;
-		emit status_changed (new_status, old);
+		emit status_changed (new_status);
 	}
 	bool refill_send_buffer (void) {
 		while (socket->bytesToWrite () < Const::write_buffer_size &&
@@ -480,6 +491,10 @@ private:
 				return false;
 		}
 		return true;
+	}
+	void on_data_written (void) {
+		if (status == Transfering)
+			refill_send_buffer ();
 	}
 
 	void on_handshake_completed (void) Q_DECL_OVERRIDE {
@@ -513,8 +528,8 @@ private:
 			protocol_error ("Transfer not complete on sender");
 			return false;
 		}
-		set_status (Completed);
 		socket->disconnectFromHost ();
+		set_status (Completed);
 		return true;
 	}
 	bool on_receive_offer (void) Q_DECL_OVERRIDE {
@@ -533,6 +548,8 @@ private:
 
 /* Download class.
  * Cannot be displayed at first due to incomplete data.
+ * Can be displayed when status goes to WaitingForUserChoice.
+ * Automatic download should be supported externally.
  */
 class Download : public Base {
 	Q_OBJECT
@@ -542,16 +559,14 @@ public:
 	enum UserChoice { Accepted, Rejected };
 
 private:
-	const bool download_auto;
 	Status status;
 
 signals:
-	void transfer_metadata_complete (void); // Called when all displayable info is set
-	void status_changed (Status new_status, Status old_status);
+	void status_changed (Status new_status);
 
 public:
-	Download (QAbstractSocket * socket, bool download_auto, QObject * parent = nullptr)
-	    : Base (socket, parent), download_auto (download_auto), status (Starting) {
+	Download (QAbstractSocket * socket, QObject * parent = nullptr)
+	    : Base (socket, parent), status (Starting) {
 		on_socket_connected ();
 		connect (this, &Base::failed, [this] { set_status (Error); });
 	}
@@ -565,7 +580,10 @@ public:
 	void give_user_choice (UserChoice choice) {
 		Q_ASSERT (status == WaitingForUserChoice);
 		if (choice == Accepted) {
-			accept_transfer ();
+			if (!send_code_message (Message::Accept))
+				return;
+			payload.start_transfer (Payload::Manager::Receiving);
+			set_status (Transfering);
 		} else {
 			send_code_message (Message::Reject);
 			failure (tr ("Transfer refused"), CloseMode);
@@ -574,17 +592,8 @@ public:
 
 private:
 	void set_status (Status new_status) {
-		auto old = status;
 		status = new_status;
-		emit status_changed (new_status, old);
-	}
-
-	bool accept_transfer (void) {
-		if (!send_code_message (Message::Accept))
-			return false;
-		payload.start_transfer (Payload::Manager::Receiving);
-		set_status (Transfering);
-		return true;
+		emit status_changed (new_status);
 	}
 
 	void on_handshake_completed (void) Q_DECL_OVERRIDE {
@@ -610,14 +619,8 @@ private:
 		}
 		if (!receive_offer ())
 			return false;
-		emit transfer_metadata_complete ();
-		if (download_auto) {
-			// Skip user choice
-			return accept_transfer ();
-		} else {
-			set_status (WaitingForUserChoice);
-			return true;
-		}
+		set_status (WaitingForUserChoice);
+		return true;
 	}
 	bool on_receive_chunk (void) Q_DECL_OVERRIDE {
 		if (status != Transfering) {
@@ -636,6 +639,7 @@ private:
 		if (payload.is_transfer_complete ()) {
 			if (!send_code_message (Message::Completed))
 				return false;
+			socket->flush ();
 			socket->disconnectFromHost ();
 			set_status (Completed);
 		}

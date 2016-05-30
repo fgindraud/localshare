@@ -181,13 +181,13 @@ public:
  * A local <root_dir> indicates the position of the payload in the file system.
  *
  * Summary:
- * Abs path of file = <root_dir>/<payload_root>/<file_relative_path>
+ * Path of file = <root_dir>/<payload_root>/<file_relative_path>
  * Payload is the set of <payload_root>/<file_relative_path> for each file.
- * <root_dir> is always absolute, and is the local payload position (source or dest).
+ * <root_dir> is the local payload position (source or destination).
  * <payload_root> must be either a single dir_name or "."
  * get_payload_dir() returns the local <root_dir>/<payload_root>
  *
- * All absolute file paths must stay in <root_dir>/<payload_root>.
+ * All file paths must stay in <root_dir>/<payload_root>.
  * Otherwise this is a security breach (writing to arbitrary user files...).
  * Constraints (validated by validate()):
  * - <payload_root> is a simple dir_name (no ".." or "/").
@@ -236,16 +236,9 @@ public:
 	int get_nb_files_transfered (void) const { return nb_files_transfered; }
 
 	const QDir & get_root_dir (void) const { return root_dir; }
-	bool set_root_dir (const QString & dir_path) {
-		// For external use (cleans the path)
+	void set_root_dir (const QString & dir_path) {
 		Q_ASSERT (transfer_status == Closed);
-		auto cleaned_dir_path = QFileInfo (dir_path).canonicalFilePath ();
-		if (cleaned_dir_path.isEmpty ()) {
-			last_error = QObject::tr ("Invalid path: %1").arg (dir_path);
-			return false;
-		}
-		root_dir.setPath (cleaned_dir_path);
-		return true;
+		root_dir.setPath (dir_path);
 	}
 
 	PayloadType get_type (void) const {

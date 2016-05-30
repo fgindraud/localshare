@@ -29,6 +29,8 @@ SOURCES += src/main.cpp
 
 QT += core network widgets svg
 
+CONFIG(release, debug|release): DEFINES += QT_NO_DEBUG_OUTPUT
+
 # DNS service discovery library
 
 unix:!macx: { # Linux
