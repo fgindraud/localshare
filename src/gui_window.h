@@ -20,15 +20,15 @@
 #include <QMenu>
 #include <QSplitter>
 
-#include "core/localshare.h"
-#include "core/server.h"
-#include "core/settings.h"
-#include "gui/discovery_subsystem.h"
-#include "gui/peer_list.h"
-#include "gui/style.h"
-#include "gui/transfer_download.h"
-#include "gui/transfer_list.h"
-#include "gui/transfer_upload.h"
+#include "core_localshare.h"
+#include "core_server.h"
+#include "core_settings.h"
+#include "gui_discovery_subsystem.h"
+#include "gui_peer_list.h"
+#include "gui_style.h"
+#include "gui_transfer_download.h"
+#include "gui_transfer_list.h"
+#include "gui_transfer_upload.h"
 
 /* Main window of application.
  * Handles most high level GUI functions (the rest is provided by view/models).

@@ -13,7 +13,7 @@
 #include <list>
 #include <memory>
 
-#include "core/localshare.h"
+#include "core_localshare.h"
 
 namespace Payload {
 /* Represent a File in a payload.
@@ -268,6 +268,13 @@ public:
 		default:
 			return QString ();
 		}
+	}
+	QString inspect_files (void) const {
+		QString text;
+		for (auto & f : files)
+			text +=
+			    QString ("-\t%1 (%2)\n").arg (f.get_relative_path ()).arg (size_to_string (f.get_size ()));
+		return text;
 	}
 
 	// File list management

@@ -7,8 +7,8 @@
 #include <QPushButton>
 #include <QStyle>
 
-#include "core/discovery.h"
-#include "gui/style.h"
+#include "core_discovery.h"
+#include "gui_style.h"
 
 namespace Discovery {
 /* Discovery subsystem.

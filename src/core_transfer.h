@@ -10,8 +10,8 @@
 #include <tuple>
 #include <type_traits>
 
-#include "core/localshare.h"
-#include "core/payload.h"
+#include "core_localshare.h"
+#include "core_payload.h"
 
 namespace Transfer {
 
@@ -197,7 +197,6 @@ public:
 		                     &QAbstractSocket::error),
 		         this, &Base::on_socket_error);
 		connect (socket, &QAbstractSocket::connected, this, &Base::on_socket_connected);
-		connect (socket, &QAbstractSocket::disconnected, this, &Base::on_socket_disconnected);
 		connect (socket, &QAbstractSocket::readyRead, this, &Base::on_data_received);
 		connect (socket, &QAbstractSocket::bytesWritten, this, &Base::on_data_written);
 	}
@@ -224,10 +223,13 @@ private slots:
 
 protected slots:
 	void on_socket_connected (void) { send_handshake (); }
-	virtual void on_socket_disconnected (void) {}
 	virtual void on_data_written (void) {}
 
 protected:
+	void close_connection (void) {
+		socket->flush ();
+		socket->disconnectFromHost ();
+	}
 	void failure (const QString & reason, FailureMode mode = SendNoticeAndCloseMode) {
 		// For failures that are printed to users
 		error = reason;
@@ -236,8 +238,7 @@ protected:
 		if (mode == AbortMode) {
 			socket->abort ();
 		} else {
-			socket->flush ();
-			socket->disconnectFromHost ();
+			close_connection ();
 		}
 		payload.stop_transfer ();
 		emit failed ();
@@ -447,7 +448,7 @@ class Upload : public Base {
 	Q_OBJECT
 
 public:
-	enum Status { Error, Init, Starting, WaitingForPeerAnswer, Transfering, Completed };
+	enum Status { Error, Init, Starting, WaitingForPeerAnswer, Transfering, Completed, Rejected };
 
 private:
 	const QString our_username;
@@ -507,8 +508,8 @@ private:
 			protocol_error ("Accept when not WaitingForPeerAnswer");
 			return false;
 		}
-		set_status (Transfering);
 		payload.start_transfer (Payload::Manager::Sending);
+		set_status (Transfering);
 		return refill_send_buffer ();
 	}
 	bool on_receive_reject (void) Q_DECL_OVERRIDE {
@@ -516,7 +517,8 @@ private:
 			protocol_error ("Reject when not WaitingForPeerAnswer");
 			return false;
 		}
-		failure (tr ("Transfer rejected by peer"), CloseMode);
+		close_connection ();
+		set_status (Rejected);
 		return false;
 	}
 	bool on_receive_completed (void) Q_DECL_OVERRIDE {
@@ -528,7 +530,7 @@ private:
 			protocol_error ("Transfer not complete on sender");
 			return false;
 		}
-		socket->disconnectFromHost ();
+		close_connection ();
 		set_status (Completed);
 		return true;
 	}
@@ -555,8 +557,16 @@ class Download : public Base {
 	Q_OBJECT
 
 public:
-	enum Status { Error, Starting, WaitingForOffer, WaitingForUserChoice, Transfering, Completed };
-	enum UserChoice { Accepted, Rejected };
+	enum Status {
+		Error,
+		Starting,
+		WaitingForOffer,
+		WaitingForUserChoice,
+		Transfering,
+		Completed,
+		Rejected
+	};
+	enum UserChoice { Accept, Reject };
 
 private:
 	Status status;
@@ -579,14 +589,15 @@ public:
 	}
 	void give_user_choice (UserChoice choice) {
 		Q_ASSERT (status == WaitingForUserChoice);
-		if (choice == Accepted) {
+		if (choice == Accept) {
 			if (!send_code_message (Message::Accept))
 				return;
 			payload.start_transfer (Payload::Manager::Receiving);
 			set_status (Transfering);
 		} else {
 			send_code_message (Message::Reject);
-			failure (tr ("Transfer refused"), CloseMode);
+			close_connection ();
+			set_status (Rejected);
 		}
 	}
 
@@ -639,8 +650,7 @@ private:
 		if (payload.is_transfer_complete ()) {
 			if (!send_code_message (Message::Completed))
 				return false;
-			socket->flush ();
-			socket->disconnectFromHost ();
+			close_connection ();
 			set_status (Completed);
 		}
 		return true;

@@ -7,9 +7,9 @@
 #include <QFileInfo>
 #include <QDataStream>
 
-#include "core/transfer.h"
-#include "gui/style.h"
-#include "gui/transfer_list.h"
+#include "core_transfer.h"
+#include "gui_style.h"
+#include "gui_transfer_list.h"
 
 namespace Transfer {
 

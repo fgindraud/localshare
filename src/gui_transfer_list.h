@@ -10,10 +10,10 @@
 #include <QStyledItemDelegate>
 #include <QTreeView>
 
-#include "core/localshare.h"
-#include "gui/button_delegate.h"
-#include "gui/struct_item_model.h"
-#include "gui/style.h"
+#include "core_localshare.h"
+#include "gui_button_delegate.h"
+#include "gui_struct_item_model.h"
+#include "gui_style.h"
 
 namespace Transfer {
 

@@ -6,7 +6,7 @@
 #include <QtGlobal>
 
 #include "compatibility.h"
-#include "core/transfer.h"
+#include "core_transfer.h"
 
 namespace Transfer {
 

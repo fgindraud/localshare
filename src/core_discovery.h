@@ -13,7 +13,7 @@
 #include <utility> // std::forward
 
 #include "compatibility.h"
-#include "core/localshare.h"
+#include "core_localshare.h"
 
 namespace Discovery {
 /* Service name vs Username.
@@ -457,7 +457,7 @@ private:
  */
 inline QHostAddress get_resolved_address (const QHostInfo & info) {
 	if (info.error () != QHostInfo::NoError) {
-		qWarning ("Error: Ip address resolution for \"%s\" failed: %s",
+		qWarning ("Ip address resolution for \"%s\" failed: %s",
 		          qUtf8Printable (info.hostName ()), qUtf8Printable (info.errorString ()));
 		return QHostAddress ();
 	}

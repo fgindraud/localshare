@@ -7,25 +7,28 @@ TEMPLATE = app
 INCLUDEPATH += src/
 HEADERS += src/compatibility.h \
 			\
-			src/core/localshare.h \
-			src/core/settings.h \
-			src/core/discovery.h \
-			src/core/transfer.h \
-			src/core/server.h \
+			src/core_localshare.h \
+			src/core_settings.h \
+			src/core_discovery.h \
+			src/core_transfer.h \
+			src/core_server.h \
 			\
-			src/cli/main.h \
+			src/cli_main.h \
+			src/cli_transfer.h \
 			\
-			src/gui/main.h \
-			src/gui/style.h \
-			src/gui/button_delegate.h \
-			src/gui/struct_item_model.h \
-			src/gui/discovery_subsystem.h \
-			src/gui/peer_list.h \
-			src/gui/transfer_list.h \
-			src/gui/transfer_upload.h \
-			src/gui/transfer_download.h \
-			src/gui/window.h
-SOURCES += src/main.cpp
+			src/gui_main.h \
+			src/gui_style.h \
+			src/gui_button_delegate.h \
+			src/gui_struct_item_model.h \
+			src/gui_discovery_subsystem.h \
+			src/gui_peer_list.h \
+			src/gui_transfer_list.h \
+			src/gui_transfer_upload.h \
+			src/gui_transfer_download.h \
+			src/gui_window.h
+SOURCES += src/main.cpp \
+			src/cli_main.cpp \
+			src/gui_main.cpp
 
 QT += core network widgets svg
 
