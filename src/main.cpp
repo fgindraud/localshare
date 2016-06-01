@@ -4,7 +4,6 @@
 #include "cli_main.h"
 #include "gui_main.h"
 
-// TODO move that away ?
 #include "core_transfer.h"
 namespace Transfer {
 Serialized serialized_info;

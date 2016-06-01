@@ -55,22 +55,31 @@ Done:
 	* show errors to user
 	* ability to restart on failure and change username
 * settings
-* interface:
+* gui interface:
 	* peer list:
 		* automatically filled by discovery
 		* supports manual peers (added by ip/port)
 	* transfers: working (basic)
 	* nice icons (credits to http://picol.org)
+* console interface:
+	* batch mode supported
 * transfer protocol:
 	* use chunks and file mapping for perf
 	* can send directories or simple files
+	* transfers are only shown when enough details has been gathered (file list)
 
 Todo:
-* transfer protocol:
-	* pre filter stuff in Transfer::Server before showing it
+* travis: add batch tests (needs avahi started)
+* gui:
+	* use new protocol
+	* fix strings
 * get attention if minimized (modified icon / OS specific way)
-* console interface ?
-	* probably batch mode (wait for specific file, send specific file to peer)
-	* or very simple interactive ?
-	* will need to extract transfer functionnality from graphics
+
+String status (if you want to translate):
+* All messages that the user can read use tr().
+* Messages that go to qWarning/qDebug are untranslated.
+* Internal strings:
+	* Left raw if used in a context that doesn't need a QString
+	* Small formats strings: use QStringLiteral
+	* Left raw if perf is not needed (one time use)
 

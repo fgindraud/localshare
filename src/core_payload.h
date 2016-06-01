@@ -2,9 +2,11 @@
 #ifndef CORE_PAYLOAD_H
 #define CORE_PAYLOAD_H
 
+#include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDataStream>
 #include <QDateTime>
+#include <QElapsedTimer>
 #include <QDir>
 #include <QDirIterator>
 #include <QFile>
@@ -30,10 +32,16 @@ namespace Payload {
  * - We need to read data to compare to checksums
  * - mmap (Shared, WriteOnly) fails on Linux...
  *
+ * 0 bytes files:
+ * - mmap cannot be used on them
+ * - most operations will be noop, and no mapping is performed
+ *
  * This class is neither copyable nor movable (due to QFile).
  * It is not a QObject as signals/slots of QFile are not useful.
  */
-class File : public Streamable, public Debugable {
+class File : public Streamable {
+	Q_DECLARE_TR_FUNCTIONS (File);
+
 private:
 	QString last_error;
 
@@ -63,11 +71,6 @@ public:
 	// Only export/import filename and size
 	void to_stream (QDataStream & stream) const { stream << file_path << size; }
 	void from_stream (QDataStream & stream) { stream >> file_path >> size; }
-	QDebug to_debug (QDebug debug) const {
-		QDebugStateSaver saver (debug);
-		debug.nospace () << "File(" << file_path << ", " << size << ")";
-		return debug;
-	}
 	bool validate_path (void) const {
 		// Check path is not out of target dir tree
 		return QDir::isRelativePath (file_path) && !file_path.contains ("..");
@@ -77,7 +80,7 @@ public:
 	QByteArray get_checksum (void) const { return hash.result (); }
 	bool test_checksum (const QByteArray & cs) {
 		if (cs != hash.result ()) {
-			last_error = QObject::tr ("Checksum does not match for file %1").arg (file_path);
+			last_error = tr ("Checksum does not match for file %1").arg (file_path);
 			return false;
 		} else {
 			return true;
@@ -92,42 +95,39 @@ public:
 		if (mode == QIODevice::ReadOnly) {
 			// Check file didn't change
 			if (info.size () != size || info.lastModified () != last_modified) {
-				last_error = QObject::tr ("File %1 has changed").arg (file_path);
+				last_error = tr ("File %1 has changed").arg (file_path);
 				return false;
 			}
 		} else if (mode == QIODevice::ReadWrite) {
 			// Make path
 			auto dir = info.dir ();
 			if (!dir.mkpath (".")) {
-				last_error = QObject::tr ("Unable to create path: %1").arg (dir.path ());
+				last_error = tr ("Unable to create path: %1").arg (dir.path ());
 				return false;
 			}
 		}
 		// Open and map memory
 		file.setFileName (info.filePath ());
 		if (!file.open (mode)) {
-			last_error = QObject::tr ("Unable to open file %1: %2")
-			                 .arg (info.filePath ())
-			                 .arg (file.errorString ());
+			last_error = tr ("Unable to open file %1: %2").arg (info.filePath (), file.errorString ());
 			return false;
 		}
 		if (mode == QIODevice::ReadWrite) {
 			// Resize before mapping
-			if (!file.resize (size)) {
-				last_error = QObject::tr ("Unable to resize file %1: %2")
-				                 .arg (info.filePath ())
-				                 .arg (file.errorString ());
+			if (size > 0 && !file.resize (size)) {
+				last_error =
+				    tr ("Unable to resize file %1: %2").arg (info.filePath (), file.errorString ());
 				return false;
 			}
 		}
-		auto addr = file.map (0, size);
-		if (addr == nullptr) {
-			last_error = QObject::tr ("Unable to map file %1: %2")
-			                 .arg (info.filePath ())
-			                 .arg (file.errorString ());
-			return false;
+		if (size > 0) {
+			auto addr = file.map (0, size);
+			if (addr == nullptr) {
+				last_error = tr ("Unable to map file %1: %2").arg (info.filePath (), file.errorString ());
+				return false;
+			}
+			mapping = reinterpret_cast<char *> (addr);
 		}
-		mapping = reinterpret_cast<char *> (addr);
 		pos = 0;
 		hash.reset ();
 		return true;
@@ -150,6 +150,8 @@ public:
 	 */
 
 	qint64 read_data (QDataStream & target, qint64 bytes) {
+		if (size == 0)
+			return 0;
 		Q_ASSERT (mapping);
 		auto p = &mapping[pos];
 		auto bytes_read = target.writeRawData (p, qMin (bytes, size - pos));
@@ -161,6 +163,8 @@ public:
 	}
 
 	qint64 write_data (QDataStream & source, qint64 bytes) {
+		if (size == 0)
+			return 0;
 		Q_ASSERT (mapping);
 		auto p = &mapping[pos];
 		auto bytes_read = source.readRawData (p, qMin (bytes, size - pos));
@@ -193,14 +197,22 @@ public:
  * - <payload_root> is a simple dir_name (no ".." or "/").
  * - any <file_relative_path> must be relative and have no "..".
  *
- * The sender will user next_chunk_size () and send_next_chunk () to send chunks until stop.
+ * The sender will user next_chunk_size () and send_next_chunk () until there are no more.
  * Call receive chunk with chunk size until total_transfered==total_size.
- * Checksums must be transfered and tested to complete the transfer.
+ *
+ * Chunks are not cut by file boundaries: they operate on the concantenated data of all files.
+ * Multiple files may be sent in one chunk; data is dispatched according to file limits.
+ * When a file has been completely sent, its checksum is available and can be sent.
+ * Upload is complete if all data then checksums have been sent.
+ * Download is complete if all data then checksums have been received (and checkums valid).
+ *
  * Note: This class never checks the status of the stream object.
  *
  * TODO ability to set a position (for restarts) ?
  */
-class Manager : public Streamable, public Debugable {
+class Manager : public Streamable {
+	Q_DECLARE_TR_FUNCTIONS (Manager);
+
 public:
 	enum Mode { Closed, Sending, Receiving };
 	enum PayloadType { Invalid, SingleFile, Directory };
@@ -272,8 +284,8 @@ public:
 	QString inspect_files (void) const {
 		QString text;
 		for (auto & f : files)
-			text +=
-			    QString ("-\t%1 (%2)\n").arg (f.get_relative_path ()).arg (size_to_string (f.get_size ()));
+			text += QStringLiteral ("-\t%1 (%2)\n")
+			            .arg (f.get_relative_path (), size_to_string (f.get_size ()));
 		return text;
 	}
 
@@ -284,7 +296,7 @@ public:
 		Q_ASSERT (get_type () == Invalid); // Should only be called once
 		auto cleaned_path = QFileInfo (path).canonicalFilePath ();
 		if (cleaned_path.isEmpty ()) {
-			last_error = QObject::tr ("Invalid path: %1").arg (path);
+			last_error = tr ("Invalid path: %1").arg (path);
 			return false;
 		}
 		QFileInfo path_info (cleaned_path);
@@ -302,19 +314,25 @@ public:
 			if (!ignore_hidden)
 				filter_flags |= QDir::Hidden;
 			QDirIterator it (path_info.filePath (), filter_flags, QDirIterator::Subdirectories);
+			QElapsedTimer timer;
+			timer.start();
 			while (it.hasNext ()) {
-				// TODO for every N-th iterations processevents
+				if (timer.elapsed() > Const::max_work_msec) {
+					// Let event loop run (warning! may cause data races)
+					QCoreApplication::processEvents ();
+					timer.start ();
+				}
 				QFileInfo entry (it.next ());
 				files.emplace_back (entry, payload_dir);
 				total_size += entry.size ();
 			}
 			if (files.empty ()) {
-				last_error = QObject::tr ("No file found in directory: %1").arg (path);
+				last_error = tr ("No file found in directory: %1").arg (path);
 				return false;
 			}
 			return true;
 		} else {
-			last_error = QObject::tr ("Path is neither a file nor a directory: %1").arg (path);
+			last_error = tr ("Path is neither a file nor a directory: %1").arg (path);
 			return false;
 		}
 	}
@@ -338,15 +356,9 @@ public:
 			stream >> files.back ();
 		}
 	}
-	QDebug to_debug (QDebug debug) const {
-		QDebugStateSaver saver (debug);
-		debug.nospace () << "Manager(root_dir=" << root_dir.path () << ", root=" << payload_root
-		                 << ", nb_files=" << files.size () << ", total_size=" << total_size << ") {\n";
-		for (const auto & f : files)
-			debug << '\t' << f << '\n';
-		return debug << '}';
-	}
 	bool validate (void) const {
+		if (total_size < 0)
+			return false;
 		if (payload_root.contains ("..") || payload_root.contains ('/') || payload_root.contains ('\\'))
 			return false;
 		if (files.empty ())
@@ -357,7 +369,7 @@ public:
 		return true;
 	}
 
-	// Send / receive next chunk and checksums
+	// Transfer status (open/close like)
 
 	void start_transfer (Mode mode) {
 		Q_ASSERT (get_type () != Invalid);
@@ -381,9 +393,12 @@ public:
 		return transfer_status == Closed && last_error.isEmpty () && total_transfered == total_size;
 	}
 
+	// Send / receive next chunk
+
 	qint64 next_chunk_size (void) const {
 		// Chunk are all of size Const::chunk_size, except the last which is truncated
 		// 0 means no more to transfer
+		Q_ASSERT (total_transfered <= total_size);
 		return qMin (Const::chunk_size, total_size - total_transfered);
 	}
 
@@ -401,8 +416,8 @@ public:
 			}
 			auto sent = current_file->read_data (stream, bytes_to_send);
 			if (sent == -1) {
-				transfer_error (QObject::tr ("Unable to send data to socket: %1")
-				                    .arg (stream.device ()->errorString ()));
+				transfer_error (
+				    tr ("Unable to send data to socket: %1").arg (stream.device ()->errorString ()));
 				return false;
 			}
 			bytes_to_send -= sent;
@@ -412,17 +427,15 @@ public:
 				current_file++;
 			}
 		}
-		if (total_transfered == total_size) {
+		if (total_transfered == total_size)
 			Q_ASSERT (current_file == files.end ());
-			transfer_status = Closed;
-		}
 		return true;
 	}
 
 	bool receive_chunk (QDataStream & stream, qint64 chunk_size) {
 		Q_ASSERT (transfer_status == Receiving);
 		if (chunk_size > (total_size - total_transfered)) {
-			transfer_error (QObject::tr ("Chunk goes past the end of transfer"));
+			transfer_error (tr ("Chunk goes past the end of transfer"));
 			return false;
 		}
 		auto bytes_to_receive = chunk_size;
@@ -436,8 +449,8 @@ public:
 			}
 			auto received = current_file->write_data (stream, bytes_to_receive);
 			if (received == -1) {
-				transfer_error (QObject::tr ("Unable to received data from socket: %1")
-				                    .arg (stream.device ()->errorString ()));
+				transfer_error (
+				    tr ("Unable to receive data from socket: %1").arg (stream.device ()->errorString ()));
 				return false;
 			}
 			bytes_to_receive -= received;
@@ -461,6 +474,11 @@ public:
 			checksums.append (next_file_to_checksum->get_checksum ());
 			++nb_files_transfered;
 		}
+		if (next_file_to_checksum == files.end ()) {
+			Q_ASSERT (nb_files_transfered == get_nb_files ());
+			Q_ASSERT (total_transfered == total_size);
+			stop_transfer (); // Close the transfer
+		}
 		return checksums;
 	}
 
@@ -468,7 +486,7 @@ public:
 		// Test checksums against files (must have been processed before)
 		for (const auto & checksum : checksums) {
 			if (next_file_to_checksum == current_file) {
-				transfer_error (QObject::tr ("Received checksum of incomplete file."));
+				transfer_error (tr ("Received checksum of incomplete file."));
 				return false;
 			}
 			if (!next_file_to_checksum->test_checksum (checksum)) {
@@ -480,7 +498,8 @@ public:
 		}
 		if (next_file_to_checksum == files.end ()) {
 			Q_ASSERT (nb_files_transfered == get_nb_files ());
-			stop_transfer (); // Last file ok
+			Q_ASSERT (total_transfered == total_size);
+			stop_transfer (); // Close the transfer
 		}
 		return true;
 	}

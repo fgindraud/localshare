@@ -3,9 +3,11 @@
 #define CORE_TRANSFER_H
 
 #include <QAbstractSocket>
-#include <QByteArray>
 #include <QDataStream>
+#include <QElapsedTimer>
 #include <QTcpSocket>
+#include <QTimer>
+#include <deque>
 #include <limits>
 #include <tuple>
 #include <type_traits>
@@ -16,9 +18,7 @@
 namespace Transfer {
 
 namespace Message {
-	/* Protocol definition.
-	 *
-	 * Protocol:
+	/* Protocol high level definition.
 	 *
 	 * Uploader         Downloader
 	 * ---[open connection]--->
@@ -147,7 +147,112 @@ public:
 };
 extern Serialized serialized_info; // Global precomputed size info (defined in main.cpp)
 
-///////////////////////////////////
+/* Implements the rate and progress notifications.
+ * Signals:
+ * - signals progress (bytes, files completed)
+ * - transfer rate (overall and instantaneous)
+ *
+ * Overall rate is available at the end of computation.
+ *
+ * Progression is signaled by the progressed() signal.
+ * This signal is triggered by send or receive.
+ * A timer is used to limit the rate of signal emission (prevent too many Gui/Cli redraws).
+ *
+ * Instant byte rate is more complex.
+ * It logs progress points (with a window to prevent using too much memory).
+ * Instant rate is computed from the window (to average a bit).
+ * It is emitted using instant_rate().
+ * When progressed() are frequent enough, we emit instant_rate() before each of them with a flag.
+ * This lets watching qobject wait for the progressed() signal before redrawing.
+ * If progressed() is infrequent, instant_rate is emitted with a slow timer.
+ */
+class Notifier : public QObject {
+	Q_OBJECT
+private:
+	// transfer total duration (for overall rate)
+	QElapsedTimer transfer_timer;
+	qint64 transfer_duration_msec{0};
+
+	// progressed() rate limiter
+	QElapsedTimer progress_timer;
+
+	// instant rate (window buffer and timer for updates)
+	struct Progress {
+		qint64 epoch;
+		qint64 transfered;
+	};
+	std::deque<Progress> history;
+	QTimer update_rate_timer;
+
+public:
+	const Payload::Manager & payload;
+
+signals:
+	void progressed (void);
+	void instant_rate (qint64 bytes_per_second, bool followed_by_progressed);
+
+public:
+	Notifier (const Payload::Manager & payload) : payload (payload) {
+		connect (&update_rate_timer, &QTimer::timeout, this, &Notifier::update_rate);
+	}
+
+	void transfer_start (void) {
+		transfer_timer.start ();
+		progress_timer.start ();
+		update_history ();
+		update_rate_timer.start (Const::rate_update_interval_msec);
+	}
+	void transfer_end (void) {
+		update_rate_timer.stop ();
+		transfer_duration_msec = transfer_timer.elapsed ();
+		emit progressed ();
+		history.clear ();
+	}
+	void may_progress (void) {
+		update_history ();
+		if (progress_timer.elapsed () >= Const::progress_update_interval_msec) {
+			progress_timer.start ();
+			output_instant_rate (true);
+			update_rate_timer.start (); // restart timer
+			emit progressed ();
+		}
+	}
+
+	// After end only
+
+	qint64 get_transfer_time (void) const {
+		Q_ASSERT (payload.is_transfer_complete ());
+		return qMax (transfer_duration_msec, qint64 (1));
+	}
+	qint64 get_average_rate (void) const {
+		return (payload.get_total_size () * 1000) / get_transfer_time ();
+	}
+
+private slots:
+	void update_rate (void) {
+		update_history ();
+		output_instant_rate (false);
+	}
+
+private:
+	void update_history (void) {
+		// Move window
+		auto epoch = transfer_timer.elapsed ();
+		history.push_back ({epoch, payload.get_total_transfered_size ()});
+		auto threshold = epoch - Const::progress_history_window_msec;
+		while (history.front ().epoch < threshold &&
+		       history.size () >= Const::progress_history_window_elem)
+			history.pop_front ();
+	}
+	void output_instant_rate (bool followed_by_progressed) {
+		if (history.size () < 2)
+			return; // Not enough elements to compute a difference
+		auto delta_bytes = history.back ().transfered - history.front ().transfered;
+		auto delta_msec = history.back ().epoch - history.front ().epoch;
+		auto rate = (1000 * delta_bytes) / qMax (delta_msec, qint64 (1));
+		emit instant_rate (rate, followed_by_progressed);
+	}
+};
 
 /* Transfer object base class.
  *
@@ -156,11 +261,9 @@ extern Serialized serialized_info; // Global precomputed size info (defined in m
  * It will then parse the [code] or [code, size, <serialized content>] stream of messages.
  * Message handlers will be called when a message has been received.
  * Functions to send/receive messages are provided.
- * It centralizes error reporting.
- *
- * TODO progress indicator
- * TODO rate computation (instant, overall) ?
- * TODO limit read buffer size
+ * Includes:
+ * - error reporting (calling failure/protocol_error)
+ * - notifications for gui/cli (see Notifier)
  */
 class Base : public QObject {
 	Q_OBJECT
@@ -170,8 +273,10 @@ private:
 	Status status{WaitingForHandshake};
 	Message::CodeType next_msg_code;
 	Message::SizePrefixType next_msg_size;
-
 	QString error;
+
+	QAbstractSocket * socket;
+	QDataStream stream;
 
 protected:
 	enum FailureMode {
@@ -180,9 +285,7 @@ protected:
 		SendNoticeAndCloseMode // Send Error msg and close gracefully
 	};
 	Payload::Manager payload;
-	QAbstractSocket * socket;
-	QDataStream stream;
-
+	Notifier notifier;
 	QString peer_username;
 
 signals:
@@ -190,7 +293,11 @@ signals:
 
 public:
 	Base (QAbstractSocket * socket_, const QString & peer_username, QObject * parent = nullptr)
-	    : QObject (parent), socket (socket_), stream (socket), peer_username (peer_username) {
+	    : QObject (parent),
+	      socket (socket_),
+	      stream (socket),
+	      notifier (payload),
+	      peer_username (peer_username) {
 		socket->setParent (this);
 		stream.setVersion (Const::serializer_version);
 		connect (socket, static_cast<void (QAbstractSocket::*) (QAbstractSocket::SocketError)> (
@@ -208,7 +315,10 @@ public:
 	QString get_connection_info (void) const {
 		return tr ("%1 on port %2").arg (socket->peerAddress ().toString ()).arg (socket->peerPort ());
 	}
+
 	const Payload::Manager & get_payload (void) const { return payload; }
+	const Notifier * get_notifier (void) const { return &notifier; }
+	Notifier * get_notifier (void) { return &notifier; }
 
 private slots:
 	void on_socket_error (void) {
@@ -217,7 +327,14 @@ private slots:
 	void on_data_received (void) {
 		if (status == WaitingForHandshake && !receive_handshake ())
 			return;
+		QElapsedTimer timer;
+		timer.start ();
 		while (receive_message ()) {
+			if (timer.elapsed () > Const::max_work_msec) {
+				// Return to event loop (but schedule this handler again)
+				QTimer::singleShot (0, this, &Base::on_data_received);
+				break;
+			}
 		}
 	}
 
@@ -226,10 +343,19 @@ protected slots:
 	virtual void on_data_written (void) {}
 
 protected:
+	// Socket management
+
+	void open_connection (const QHostAddress & address, quint16 port) {
+		socket->connectToHost (address, port);
+	}
 	void close_connection (void) {
 		socket->flush ();
 		socket->disconnectFromHost ();
 	}
+	qint64 write_buffer_size (void) const { return socket->bytesToWrite (); }
+
+	// Error reporting
+
 	void failure (const QString & reason, FailureMode mode = SendNoticeAndCloseMode) {
 		// For failures that are printed to users
 		error = reason;
@@ -241,6 +367,7 @@ protected:
 			close_connection ();
 		}
 		payload.stop_transfer ();
+		notifier.transfer_end ();
 		emit failed ();
 	}
 	void protocol_error (const char * details) {
@@ -269,6 +396,8 @@ protected:
 		}
 	}
 
+	// Message event Handlers
+
 	virtual void on_handshake_completed (void) = 0;
 	// Bool event handlers should return false to stop further processing of messages
 	virtual bool on_receive_accept (void) = 0;
@@ -278,6 +407,8 @@ protected:
 	virtual bool on_receive_offer (void) = 0;
 	virtual bool on_receive_chunk (void) = 0;
 	virtual bool on_receive_checksums (void) = 0;
+
+	// Protocol interaction utilities
 
 	bool send_code_message (Message::Code code) {
 		stream << Message::CodeType (code);
@@ -313,6 +444,7 @@ protected:
 		auto checksums = payload.take_pending_checksums ();
 		if (!checksums.empty ())
 			return send_content_message (Message::Checksums, checksums);
+		notifier.may_progress ();
 		return true;
 	}
 	bool receive_next_chunk (void) {
@@ -321,7 +453,10 @@ protected:
 			failure (tr ("Receive chunk error: %1").arg (payload.get_last_error ()));
 			return false;
 		}
-		return check_stream ();
+		if (!check_stream ())
+			return false;
+		notifier.may_progress ();
+		return true;
 	}
 	bool receive_checksums (void) {
 		Payload::Manager::ChecksumList checksums;
@@ -332,10 +467,13 @@ protected:
 			failure (payload.get_last_error ());
 			return false;
 		}
+		notifier.may_progress ();
 		return true;
 	}
 
 private:
+	// Basic message primitives
+
 	bool send_handshake (void) {
 		stream << std::tie (Const::protocol_magic, Const::protocol_version);
 		return check_stream ();
@@ -354,8 +492,7 @@ private:
 			return false;
 		}
 		if (version != Const::protocol_version) {
-			failure (
-			    tr ("Protocol version mismatch: %1 vs %2").arg (version).arg (Const::protocol_version));
+			failure (tr ("Protocol version mismatch: %1 vs %2").arg (version, Const::protocol_version));
 			return false;
 		}
 		status = WaitingForCode;
@@ -474,7 +611,7 @@ public:
 
 	void connect (const QHostAddress & address, quint16 port) {
 		Q_ASSERT (payload.get_type () != Payload::Manager::Invalid);
-		socket->connectToHost (address, port);
+		open_connection (address, port);
 		set_status (Starting);
 	}
 
@@ -486,14 +623,18 @@ private:
 		emit status_changed (new_status);
 	}
 	bool refill_send_buffer (void) {
-		while (socket->bytesToWrite () < Const::write_buffer_size &&
+		QElapsedTimer timer;
+		timer.start ();
+		while (write_buffer_size () < Const::write_buffer_size &&
 		       payload.get_total_transfered_size () < payload.get_total_size ()) {
 			if (!send_next_chunk ())
 				return false;
+			if (timer.elapsed () > Const::max_work_msec)
+				return true; // Return to event loop
 		}
 		return true;
 	}
-	void on_data_written (void) {
+	void on_data_written (void) Q_DECL_OVERRIDE {
 		if (status == Transfering)
 			refill_send_buffer ();
 	}
@@ -509,6 +650,7 @@ private:
 			return false;
 		}
 		payload.start_transfer (Payload::Manager::Sending);
+		notifier.transfer_start ();
 		set_status (Transfering);
 		return refill_send_buffer ();
 	}
@@ -530,6 +672,7 @@ private:
 			protocol_error ("Transfer not complete on sender");
 			return false;
 		}
+		notifier.transfer_end ();
 		close_connection ();
 		set_status (Completed);
 		return true;
@@ -593,6 +736,7 @@ public:
 			if (!send_code_message (Message::Accept))
 				return;
 			payload.start_transfer (Payload::Manager::Receiving);
+			notifier.transfer_start ();
 			set_status (Transfering);
 		} else {
 			send_code_message (Message::Reject);
@@ -650,6 +794,7 @@ private:
 		if (payload.is_transfer_complete ()) {
 			if (!send_code_message (Message::Completed))
 				return false;
+			notifier.transfer_end ();
 			close_connection ();
 			set_status (Completed);
 		}

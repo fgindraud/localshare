@@ -2,8 +2,8 @@
 #ifndef CORE_DISCOVERY_H
 #define CORE_DISCOVERY_H
 
-#include <QHostInfo>
 #include <QHostAddress>
+#include <QHostInfo>
 #include <QSocketNotifier>
 #include <QString>
 #include <QTime>
@@ -457,8 +457,8 @@ private:
  */
 inline QHostAddress get_resolved_address (const QHostInfo & info) {
 	if (info.error () != QHostInfo::NoError) {
-		qWarning ("Ip address resolution for \"%s\" failed: %s",
-		          qUtf8Printable (info.hostName ()), qUtf8Printable (info.errorString ()));
+		qWarning ("Ip address resolution for \"%s\" failed: %s", qUtf8Printable (info.hostName ()),
+		          qUtf8Printable (info.errorString ()));
 		return QHostAddress ();
 	}
 	if (info.addresses ().isEmpty ()) {

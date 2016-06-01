@@ -2,9 +2,9 @@
 #ifndef GUI_DISCOVERY_SUBSYSTEM_H
 #define GUI_DISCOVERY_SUBSYSTEM_H
 
-#include <QStatusBar>
 #include <QLabel>
 #include <QPushButton>
+#include <QStatusBar>
 #include <QStyle>
 
 #include "core_discovery.h"
@@ -133,22 +133,20 @@ private:
 		if (service_record) {
 			if (!local_peer->get_service_name ().isEmpty ()) {
 				return tr ("%1 running on port %2 and registered with username \"%3\".")
-				    .arg (Const::app_display_name)
-				    .arg (local_peer->get_port ())
-				    .arg (local_peer->get_username ());
+				    .arg (Const::app_display_name, QString::number (local_peer->get_port ()),
+				          local_peer->get_username ());
 			} else {
 				return tr ("%1 running on port %2 and registering...")
-				    .arg (Const::app_display_name)
-				    .arg (local_peer->get_port ());
+				    .arg (Const::app_display_name, QString::number (local_peer->get_port ()),
+				          local_peer->get_username ());
 			}
 		} else {
 			return tr ("%1 running on port %2 and unregistered !")
-			    .arg (Const::app_display_name)
-			    .arg (local_peer->get_port ());
+			    .arg (Const::app_display_name, QString::number (local_peer->get_port ()),
+			          local_peer->get_username ());
 		}
 	}
 };
 }
-
 
 #endif

@@ -19,6 +19,7 @@ namespace Transfer {
 
 /* Base transfer item class.
  * Subclassed by upload or download.
+ * TODO make them use a Transfer::Base to get most info
  */
 class Item : public StructItem {
 	Q_OBJECT

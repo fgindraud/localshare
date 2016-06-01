@@ -4,7 +4,13 @@
 
 #include <QString>
 
+namespace Indicator {
+class Item;
+}
+
 namespace Cli {
+void draw_progress_indicator (const Indicator::Item &);
+
 void verbose_print (const QString & msg);
 void normal_print (const QString & msg);
 void error_print (const QString & msg);

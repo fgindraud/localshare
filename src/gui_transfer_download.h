@@ -101,7 +101,7 @@ private:
 				if (filepath.isEmpty ())
 					return tr ("Download");
 				else
-					return tr ("Downloading %1 to %2").arg (filename).arg (filepath);
+					return tr ("Downloading %1 to %2").arg (filename,filepath);
 			case Qt::DecorationRole:
 				return Icon::download ();
 			case Item::ButtonRole:
@@ -149,7 +149,7 @@ private:
 					return 100;
 			case Qt::StatusTipRole:
 			case Qt::ToolTipRole:
-				return QString ("%1/%2").arg (size_to_string (outfile.size ())).arg (size_to_string (size));
+				return QStringLiteral ("%1/%2").arg (size_to_string (outfile.size ())).arg (size_to_string (size));
 			}
 		} break;
 		case StatusField: {

@@ -2,10 +2,10 @@
 #ifndef GUI_TRANSFER_UPLOAD_H
 #define GUI_TRANSFER_UPLOAD_H
 
-#include <QTcpSocket>
+#include <QDataStream>
 #include <QFile>
 #include <QFileInfo>
-#include <QDataStream>
+#include <QTcpSocket>
 
 #include "core_transfer.h"
 #include "gui_style.h"
@@ -49,7 +49,7 @@ private:
 
 public:
 	UploadOld (const Peer & peer, const QString & filepath, const QString & our_username,
-	        QObject * parent = nullptr)
+	           QObject * parent = nullptr)
 	    : Item (parent),
 	      peer (peer),
 	      our_username (our_username),
@@ -105,9 +105,7 @@ private:
 			case Qt::StatusTipRole:
 			case Qt::ToolTipRole:
 				return tr ("%1 (%2) on port %3")
-				    .arg (peer.hostname)
-				    .arg (peer.address.toString ())
-				    .arg (peer.port);
+				    .arg (peer.hostname, peer.address.toString (), QString::number (peer.port));
 			}
 		} break;
 		case SizeField: {
@@ -132,7 +130,7 @@ private:
 					return 100;
 			case Qt::StatusTipRole:
 			case Qt::ToolTipRole:
-				return QString ("%1/%2")
+				return QStringLiteral ("%1/%2")
 				    .arg (size_to_string (bytes_sent))
 				    .arg (size_to_string (file.size ()));
 			}
@@ -155,7 +153,7 @@ private:
 					return tr ("Transfer complete");
 				}
 			} else if (role == Item::ButtonRole) {
-				return int (Item::DeleteButton);
+				return int(Item::DeleteButton);
 			}
 		} break;
 		}
@@ -246,7 +244,7 @@ private:
 	}
 
 	template <typename Msg> void send_message (const Msg & msg) {
-		auto s = serialized_info.compute_size(Msg::code (), msg);
+		auto s = serialized_info.compute_size (Msg::code (), msg);
 		Q_ASSERT (s <= Message::max_size);
 		socket_stream << static_cast<Message::SizePrefixType> (s) << Msg::code () << msg;
 	}

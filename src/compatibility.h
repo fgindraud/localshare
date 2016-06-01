@@ -2,7 +2,7 @@
 #ifndef COMPATIBILITY_H
 #define COMPATIBILITY_H
 
-// Contains missing stuff in older Qt versions up to 5.2
+// Contains missing stuff in older Qt versions up to 5.2, or c++>11 stuff
 
 #include <QList>
 #include <QString>
@@ -60,5 +60,18 @@ template <std::size_t... I> using IndexSequence = std::index_sequence<I...>;
 template <std:: : size_t N> using MakeIndexSequence = std::make_index_sequence<N>;
 template <typename... Types> using IndexSequenceFor = std::index_sequence_for<Types...>;
 #endif
+
+inline bool qt_message_is_important (QtMsgType type) {
+		switch (type) {
+		case QtDebugMsg:
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 5, 0))
+		case QtInfoMsg:
+#endif
+		case QtWarningMsg:
+			return false;
+		default:
+			return true;
+		}
+}
 
 #endif
