@@ -6,7 +6,6 @@
 #include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDataStream>
-#include <QDebug>
 #include <tuple>
 #include <type_traits>
 
@@ -113,8 +112,7 @@ inline QDataStream & operator>> (QDataStream & stream, const std::tuple<Types...
 	return stream;
 }
 
-/*
- * Peer information
+/* Peer information.
  */
 struct Peer {
 	QString username;

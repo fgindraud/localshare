@@ -111,20 +111,38 @@ private:
 Q_DECLARE_OPERATORS_FOR_FLAGS (Item::Buttons);
 
 /* Item coming from Discovery.
- * TODO improve, handle DnsPeer updates
  */
 class DiscoveryItem : public Item {
 	Q_OBJECT
 
 public:
 	DiscoveryItem (Discovery::DnsPeer * dns_peer) : Item (dns_peer) {
-		peer.username = dns_peer->get_username (); // TODO for now store username
-		peer.hostname = dns_peer->get_hostname ();
-		peer.port = dns_peer->get_port ();
-		QHostInfo::lookupHost (peer.hostname, this, SLOT (address_lookup_complete (QHostInfo)));
+		peer.username = dns_peer->get_username ();
+		connect (dns_peer, &Discovery::DnsPeer::hostname_changed, this,
+		         &DiscoveryItem::hostname_changed);
+		connect (dns_peer, &Discovery::DnsPeer::port_changed, this, &DiscoveryItem::port_changed);
+		hostname_changed ();
+		port_changed ();
 	}
 
 private slots:
+	void hostname_changed (void) {
+		auto dns_peer = qobject_cast<Discovery::DnsPeer *> (parent ());
+		Q_ASSERT (dns_peer);
+		peer.hostname = dns_peer->get_hostname ();
+		peer.address.clear ();
+		edited_data (HostnameField);
+		edited_data (AddressField);
+		QHostInfo::lookupHost (peer.hostname, this, SLOT (address_lookup_complete (QHostInfo)));
+	}
+
+	void port_changed (void) {
+		auto dns_peer = qobject_cast<Discovery::DnsPeer *> (parent ());
+		Q_ASSERT (dns_peer);
+		peer.port = dns_peer->get_port ();
+		edited_data (PortField);
+	}
+
 	void address_lookup_complete (const QHostInfo & info) {
 		auto address = Discovery::get_resolved_address (info);
 		if (!address.isNull ()) {

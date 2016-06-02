@@ -34,7 +34,7 @@ private:
 	ServiceRecord * service_record{nullptr};
 	Browser * browser{nullptr};
 
-	QString current_errors{"Init"};
+	QString current_errors{"Init"}; // A non empty text is important for initialisation
 	QLabel * warning_symbol{nullptr};
 	QLabel * message{nullptr};
 	QPushButton * restart{nullptr};
@@ -137,13 +137,11 @@ private:
 				          local_peer->get_username ());
 			} else {
 				return tr ("%1 running on port %2 and registering...")
-				    .arg (Const::app_display_name, QString::number (local_peer->get_port ()),
-				          local_peer->get_username ());
+				    .arg (Const::app_display_name, QString::number (local_peer->get_port ()));
 			}
 		} else {
 			return tr ("%1 running on port %2 and unregistered !")
-			    .arg (Const::app_display_name, QString::number (local_peer->get_port ()),
-			          local_peer->get_username ());
+			    .arg (Const::app_display_name, QString::number (local_peer->get_port ()));
 		}
 	}
 };

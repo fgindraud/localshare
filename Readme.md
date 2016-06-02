@@ -69,7 +69,6 @@ Done:
 	* transfers are only shown when enough details has been gathered (file list)
 
 Todo:
-* travis: add batch tests (needs avahi started)
 * gui:
 	* use new protocol
 	* fix strings

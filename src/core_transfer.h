@@ -601,7 +601,6 @@ public:
 	}
 
 	bool set_payload (const QString & file_path_to_send, bool send_hidden_files) {
-		// TODO setting for hidden files ?
 		if (!payload.from_source_path (file_path_to_send, !send_hidden_files)) {
 			failure (tr ("Cannot get file information: %1").arg (payload.get_last_error ()), AbortMode);
 			return false;
