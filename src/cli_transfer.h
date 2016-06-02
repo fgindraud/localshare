@@ -62,7 +62,11 @@ public slots:
 		byte_progress.value = progress;
 		draw_progress_indicator (*this);
 	}
-	void update_rate (qint64 bytes_per_second) { instant_rate.current = bytes_per_second; }
+	void update_rate (qint64 bytes_per_second, bool followed_by_progressed) {
+		instant_rate.current = bytes_per_second;
+		if (!followed_by_progressed)
+			draw_progress_indicator (*this);
+	}
 };
 
 // Helper for status changed
@@ -104,6 +108,7 @@ class Upload : public QObject {
 
 private:
 	const QString file_path;
+	const bool send_hidden_files;
 
 	Discovery::LocalDnsPeer local_peer;
 	Discovery::Browser * browser{nullptr};
@@ -113,15 +118,18 @@ private:
 	quint16 port{0};
 
 public:
-	Upload (const QString & file_path, const QString & peer_username, const QString & local_username)
-	    : file_path (file_path), upload (peer_username, local_username) {}
+	Upload (const QString & file_path, const QString & peer_username, const QString & local_username,
+	        bool send_hidden_files)
+	    : file_path (file_path),
+	      send_hidden_files (send_hidden_files),
+	      upload (peer_username, local_username) {}
 
 public slots:
 	void start (void) {
 		connect (&upload, &Transfer::Upload::failed, this, &Upload::upload_failed);
 		connect (&upload, &Transfer::Upload::status_changed, this, &Upload::upload_status_changed);
 
-		if (!upload.set_payload (file_path))
+		if (!upload.set_payload (file_path, send_hidden_files))
 			return;
 		new ProgressIndicator (upload.get_notifier ());
 

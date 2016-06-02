@@ -34,7 +34,7 @@ install:
    - make
 
 script:
-   - echo "Build Ok"
+   - source ./build/${PLATFORM}/test.sh
 
 before_deploy:
    - source ./build/${PLATFORM}/package.sh

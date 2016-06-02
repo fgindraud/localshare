@@ -2,11 +2,11 @@
 #ifndef CORE_SETTINGS_H
 #define CORE_SETTINGS_H
 
-#include <QSettings>
 #include <QByteArray>
-#include <QProcessEnvironment>
-#include <QStandardPaths>
 #include <QDir>
+#include <QProcessEnvironment>
+#include <QSettings>
+#include <QStandardPaths>
 
 namespace Settings {
 
@@ -52,6 +52,13 @@ private:
 		// Or return default if not found
 		return "Unknown";
 	}
+};
+
+class UploadHidden : public Element<bool> {
+	// Do we consider hidden files for download when parsing directories ?
+private:
+	const char * key (void) const { return "download/hidden_files"; }
+	bool default_value (void) const { return false; }
 };
 
 class DownloadPath : public Element<QString> {

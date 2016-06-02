@@ -1,5 +1,5 @@
-#include <QtGlobal>
 #include <QByteArray>
+#include <QtGlobal>
 
 #include "cli_main.h"
 #include "gui_main.h"
@@ -30,7 +30,7 @@ int main (int argc, char * argv[]) {
 	qputenv ("AVAHI_COMPAT_NOWARN", "1");
 #endif
 	if (is_console_mode (argc, argv)) {
-		return Cli::main (argc, argv);
+		return Cli::start (argc, argv);
 	} else {
 		return gui_main (argc, argv);
 	}

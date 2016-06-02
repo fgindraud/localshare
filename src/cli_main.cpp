@@ -71,7 +71,7 @@ void exit_error (void) {
 /* Entry point.
  * Parses command line arguments and start appropriate mode.
  */
-int main (int & argc, char **& argv) {
+int start (int & argc, char **& argv) {
 	QCoreApplication app (argc, argv);
 	Const::setup (app);
 
@@ -129,6 +129,9 @@ int main (int & argc, char **& argv) {
 	                                             << "quiet",
 	                              tr ("Hide all output, only show errors."));
 	parser.addOption (quiet_opt);
+	QCommandLineOption hidden_files_opt (QStringList () << "hidden",
+	                                     tr ("Send hidden files when sending directories."));
+	parser.addOption (hidden_files_opt);
 
 	parser.process (app);
 	if (parser.isSet (version_opt)) {
@@ -162,7 +165,8 @@ int main (int & argc, char **& argv) {
 			QTextStream (stderr) << tr ("Error: target peer of upload is not set (see -h for help).\n");
 			return EXIT_FAILURE;
 		}
-		Upload upload (parser.value (upload_opt), parser.value (peer_opt), parser.value (username_opt));
+		Upload upload (parser.value (upload_opt), parser.value (peer_opt), parser.value (username_opt),
+		               parser.isSet (hidden_files_opt));
 		QTimer::singleShot (0, &upload, SLOT (start ()));
 		return app.exec ();
 	}

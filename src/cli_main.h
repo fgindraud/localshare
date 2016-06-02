@@ -17,7 +17,7 @@ void error_print (const QString & msg);
 void exit_nicely (void);
 void exit_error (void);
 
-int main (int & argc, char **& argv);
+int start (int & argc, char **& argv);
 }
 
 #endif

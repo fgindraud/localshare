@@ -332,7 +332,7 @@ private slots:
 		while (receive_message ()) {
 			if (timer.elapsed () > Const::max_work_msec) {
 				// Return to event loop (but schedule this handler again)
-				QTimer::singleShot (0, this, &Base::on_data_received);
+				QTimer::singleShot (0, this, SLOT (on_data_received ()));
 				break;
 			}
 		}
@@ -600,9 +600,9 @@ public:
 		QObject::connect (this, &Base::failed, [this] { set_status (Error); });
 	}
 
-	bool set_payload (const QString & file_path_to_send) {
+	bool set_payload (const QString & file_path_to_send, bool send_hidden_files) {
 		// TODO setting for hidden files ?
-		if (!payload.from_source_path (file_path_to_send, true)) {
+		if (!payload.from_source_path (file_path_to_send, !send_hidden_files)) {
 			failure (tr ("Cannot get file information: %1").arg (payload.get_last_error ()), AbortMode);
 			return false;
 		}
