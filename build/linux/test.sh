@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 set -xue
 
-# So.... avahi. FIXME
-# Avahi doesn't want to publish services if only loopback interface is available.
-# Avahi is available on Travis machines, but there is only loopback...
-# So the transfer test just hangs and waits. So it has been deactivated.
-# - Avahi config options are of no help
-# - Replace with mDNSResponder ?
-# - What about dns resolution for .local services ?
-ip link # check only loopback TODO remove
+# FIXME
+# Avahi daemon is available on Travis linux environment.
+# Avahi is available on Travis machines, but doesn't seem to work (instances don't find each other).
+#
+# I know that is doesn't browse event localhost services if only loopback is available.
+# But eth0 exists and is up !
+# Checking settings and ip of eth0
+ip link
+ip addr
+cat /etc/avahi/avahi-daemon.conf
+cat /etc/nsswitch.conf
 
 ./localshare --version
 
