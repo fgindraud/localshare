@@ -2,7 +2,10 @@
 #ifndef CORE_LOCALSHARE_H
 #define CORE_LOCALSHARE_H
 
+#ifdef LOCALSHARE_HAS_GUI
 #include <QApplication>
+#endif
+
 #include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDataStream>
@@ -50,10 +53,12 @@ inline void setup (QCoreApplication & app) {
 	app.setOrganizationName (Const::app_name);
 	app.setApplicationName (Const::app_name);
 }
+#ifdef LOCALSHARE_HAS_GUI
 inline void setup (QApplication & app) {
 	setup (static_cast<QCoreApplication &> (app));
 	app.setApplicationDisplayName (Const::app_display_name);
 }
+#endif
 }
 
 /* Classes can inherit from tag Streamable.

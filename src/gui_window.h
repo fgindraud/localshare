@@ -160,6 +160,13 @@ public:
 			connect (use_tray, &QAction::triggered,
 			         [=](bool checked) { Settings::UseTray ().set (checked); });
 
+			auto send_hidden_files = new QAction (tr ("Send &hidden files"), pref);
+			send_hidden_files->setCheckable (true);
+			send_hidden_files->setChecked (Settings::UploadHidden ().get ());
+			send_hidden_files->setStatusTip (tr ("Also send hidden files when sending a directory."));
+			connect (send_hidden_files, &QAction::triggered,
+			         [=](bool checked) { Settings::UploadHidden ().set (checked); });
+
 			auto download_path = new QAction (tr ("Set default download &path..."), pref);
 			download_path->setStatusTip (tr ("Sets the path used by default to store downloaded files."));
 			connect (download_path, &QAction::triggered, [=](void) {
@@ -177,7 +184,7 @@ public:
 			connect (download_auto, &QAction::triggered,
 			         [=](bool checked) { Settings::DownloadAuto ().set (checked); });
 
-			auto change_username = new QAction (tr ("Change username..."), pref);
+			auto change_username = new QAction (tr ("Change &username..."), pref);
 			change_username->setStatusTip ("Set a new username in settings and discovery");
 			connect (change_username, &QAction::triggered, [=](void) {
 				QString new_username =
@@ -189,6 +196,7 @@ public:
 
 			pref->addAction (use_tray);
 			pref->addSeparator ();
+			pref->addAction (send_hidden_files);
 			pref->addAction (download_path);
 			pref->addAction (download_auto);
 			pref->addSeparator ();
@@ -333,6 +341,10 @@ private slots:
 		        "<p>If using the system tray icon, %1 acts like a small daemon. "
 		        "Hiding/closing the window only reduces it to the system tray. "
 		        "It can be useful for long transfers, but do not forget to close it !</p>"
+
+		        "<p>%1 also has a command line interface. "
+		        "It works without a graphical environment, making it very close to a better netcat. "
+		        "Options can be found by calling %1 with option --help.</p>"
 
 		        "<p>Copyright (C) 2016 François Gindraud.</p>"
 		        "<p><a href=\"https://github.com/lereldarion/qt-localshare\">Github Link</a></p>")

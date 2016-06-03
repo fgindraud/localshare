@@ -7,6 +7,9 @@ Small graphical application to send a file to a local peer.
 Peers on the local network are automatically discovered using Zeroconf mDNS service discovery.
 Distant peers can be manually added by filling ip and port (but performing a transfer requires an open firewall on the destination).
 
+A command line interface is also available, and should work without requiring any graphical stack support.
+The project can also be compiled with only the command line interface (see `localshare.pro`), reducing dependencies and executable size.
+
 Setup
 -----
 
@@ -16,7 +19,7 @@ qmake
 make
 ```
 
-Requires Qt >= 5.2, Bonjour support (see below) and c++14 compiler support.
+Requires Qt >= 5.2, Bonjour support (see below) and c++11 compiler support.
 Details about dependencies can be found in the `build/*/requirement.sh` files.
 
 Binaries can be found in the release section.
@@ -73,6 +76,10 @@ Todo:
 	* use new protocol
 	* fix strings
 * get attention if minimized (modified icon / OS specific way)
+* distant peers:
+	* upnp firewall opening for distant peers ? (dangerous)
+	* hardening of protocol ? (local link is easier to trust)
+	* use authentification with ssl ? (QSslSocket)
 
 String status (if you want to translate):
 * All messages that the user can read use tr().
