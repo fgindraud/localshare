@@ -10,7 +10,7 @@ set -xue
 
 # test transfer of dummy file
 head -c 100000 /dev/urandom > data
-./localshare -v -u data -p TEST &
+./localshare -q -u data -p TEST &
 ./localshare -v --yes -d -t test -n TEST
 wait
 cmp data test/data

@@ -18,8 +18,6 @@
 #include "core_settings.h"
 #include "core_transfer.h"
 
-#include <QDebug>
-
 namespace Cli {
 
 /* Class that uses the Indicator cli gui elements to show the progress.
@@ -124,9 +122,7 @@ public:
 	        bool send_hidden_files)
 	    : file_path (file_path),
 	      send_hidden_files (send_hidden_files),
-	      upload (peer_username, local_username) {
-		qDebug () << "UPLOAD start" << file_path << peer_username << local_username;
-	}
+	      upload (peer_username, local_username) {}
 
 public slots:
 	void start (void) {
@@ -211,7 +207,6 @@ public:
 	          bool auto_accept)
 	    : target_dir (target_dir), peer_filter (peer_filter), auto_accept (auto_accept) {
 		local_peer.set_requested_username (local_username);
-		qDebug () << "DOWNLOAD start" << local_username << target_dir << peer_filter << auto_accept;
 	}
 
 public slots:
@@ -226,9 +221,6 @@ public slots:
 				verbose_print (tr ("Registered as \"%1\" (\"%2\", port %3).\n")
 				                   .arg (local_peer.get_username (), local_peer.get_service_name (),
 				                         QString::number (local_peer.get_port ())));
-			qDebug () << "DOWNLOAD dns" << local_peer.get_requested_username ()
-			          << local_peer.get_username () << local_peer.get_requested_service_name ()
-			          << local_peer.get_service_name ();
 		});
 
 		service_record = new Discovery::ServiceRecord (&local_peer);

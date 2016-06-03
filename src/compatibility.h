@@ -10,11 +10,9 @@
 #include <iterator>
 #include <utility>
 
-#if (QT_VERSION < QT_VERSION_CHECK(5, 4, 0))
-// No qUtf8Printable
-inline const char * qUtf8Printable (const QString & str) {
-	return str.toUtf8 ().constData ();
-}
+// No qUtf8Printable (is a macro)
+#ifndef qUtf8Printable
+#define qUtf8Printable(string) QString (string).toUtf8 ().constData ()
 #endif
 
 #if (QT_VERSION < QT_VERSION_CHECK(5, 6, 0))
@@ -62,16 +60,16 @@ template <typename... Types> using IndexSequenceFor = std::index_sequence_for<Ty
 #endif
 
 inline bool qt_message_is_important (QtMsgType type) {
-		switch (type) {
-		case QtDebugMsg:
+	switch (type) {
+	case QtDebugMsg:
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 5, 0))
-		case QtInfoMsg:
+	case QtInfoMsg:
 #endif
-		case QtWarningMsg:
-			return false;
-		default:
-			return true;
-		}
+	case QtWarningMsg:
+		return false;
+	default:
+		return true;
+	}
 }
 
 #endif

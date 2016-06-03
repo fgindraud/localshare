@@ -7,30 +7,30 @@ matrix:
         dist: trusty
         sudo: required
 
-#      - env: PLATFORM='linux' RELEASE='false' QMAKESPEC='linux-clang'
-#        os: linux
-#        dist: trusty
-#        sudo: required
-#
-#      - env: PLATFORM='mac' RELEASE='true'
-#        os: osx
-#        osx_image: xcode7.2
-#
-#      - env: PLATFORM='windows' RELEASE='true' BITS='32'
-#        os: linux
-#        dist: trusty
-#        sudo: required
-#
-#      - env: PLATFORM='windows' RELEASE='true' BITS='64'
-#        os: linux
-#        dist: trusty
-#        sudo: required
+      - env: PLATFORM='linux' RELEASE='false' QMAKESPEC='linux-clang'
+        os: linux
+        dist: trusty
+        sudo: required
+
+      - env: PLATFORM='mac' RELEASE='true'
+        os: osx
+        osx_image: xcode7.2
+
+      - env: PLATFORM='windows' RELEASE='true' BITS='32'
+        os: linux
+        dist: trusty
+        sudo: required
+
+      - env: PLATFORM='windows' RELEASE='true' BITS='64'
+        os: linux
+        dist: trusty
+        sudo: required
 
 before_install:
    - source ./build/${PLATFORM}/requirement.sh
 
 install:
-   - qmake -config debug
+   - qmake -config release
    - make
 
 script:
