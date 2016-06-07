@@ -9,6 +9,7 @@
 #include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDataStream>
+#include <QTime>
 #include <tuple>
 #include <type_traits>
 
@@ -126,8 +127,7 @@ struct Peer {
 	quint16 port; // Stored in host byte order
 };
 
-/* Print file size with the right suffix.
- */
+// Print file size with the right suffix.
 inline QString size_to_string (qint64 size) {
 	qreal num = size;
 	qreal increment = 1024.0;
@@ -144,6 +144,11 @@ inline QString size_to_string (qint64 size) {
 		num /= increment;
 	}
 	return QString ().setNum (num, 'f', 2) + qApp->translate ("size_to_string", suffixes[unit_idx]);
+}
+
+// Print time from msec value
+inline QString msec_to_string (qint64 msec) {
+	return QTime (0, 0, 0).addMSecs (msec).toString ();
 }
 
 #endif

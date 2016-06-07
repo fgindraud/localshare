@@ -59,38 +59,6 @@ namespace Message {
 	constexpr auto max_size = static_cast<qint64> (std::numeric_limits<SizePrefixType>::max ());
 }
 
-namespace MessageOld {
-	struct Offer {
-		// Request for sending a file by the Uploader
-		static constexpr Message::CodeType code (void) { return 0x42; }
-		QString username; // Sender
-		QString filename; // Name of file
-		qint64 size;
-	};
-	inline QDataStream & operator<< (QDataStream & stream, const Offer & req) {
-		return stream << req.username << req.filename << req.size;
-	}
-	inline QDataStream & operator>> (QDataStream & stream, Offer & req) {
-		return stream >> req.username >> req.filename >> req.size;
-	}
-
-	struct Accept {
-		// Accept the file offer
-		static constexpr Message::CodeType code (void) { return 0x43; }
-		// No data needed
-	};
-	inline QDataStream & operator<< (QDataStream & stream, const Accept &) { return stream; }
-	inline QDataStream & operator>> (QDataStream & stream, Accept &) { return stream; }
-
-	struct Reject {
-		// Reject the file offer
-		static constexpr Message::CodeType code (void) { return 0x44; }
-		// No data needed
-	};
-	inline QDataStream & operator<< (QDataStream & stream, const Reject &) { return stream; }
-	inline QDataStream & operator>> (QDataStream & stream, Reject &) { return stream; }
-}
-
 // Information on size of serialized structures
 class Serialized {
 private:
@@ -313,7 +281,13 @@ public:
 
 	QString get_peer_username (void) const { return peer_username; }
 	QString get_connection_info (void) const {
-		return tr ("%1 on port %2").arg (socket->peerAddress ().toString ()).arg (socket->peerPort ());
+		if (socket->state () == QAbstractSocket::ConnectedState) {
+			return tr ("%1 on port %2")
+			    .arg (socket->peerAddress ().toString ())
+			    .arg (socket->peerPort ());
+		} else {
+			return QString ();
+		}
 	}
 
 	const Payload::Manager & get_payload (void) const { return payload; }
@@ -592,7 +566,7 @@ private:
 	Status status;
 
 signals:
-	void status_changed (Status new_status);
+	void status_changed (Status new_status, Status old_status);
 
 public:
 	Upload (const QString & peer_username, const QString & our_username, QObject * parent = nullptr)
@@ -601,6 +575,7 @@ public:
 	}
 
 	bool set_payload (const QString & file_path_to_send, bool send_hidden_files) {
+		Q_ASSERT (status == Init);
 		if (!payload.from_source_path (file_path_to_send, !send_hidden_files)) {
 			failure (tr ("Cannot get file information: %1").arg (payload.get_last_error ()), AbortMode);
 			return false;
@@ -609,6 +584,7 @@ public:
 	}
 
 	void connect (const QHostAddress & address, quint16 port) {
+		Q_ASSERT (status == Init);
 		Q_ASSERT (payload.get_type () != Payload::Manager::Invalid);
 		open_connection (address, port);
 		set_status (Starting);
@@ -618,8 +594,9 @@ public:
 
 private:
 	void set_status (Status new_status) {
+		auto old = status;
 		status = new_status;
-		emit status_changed (new_status);
+		emit status_changed (new_status, old);
 	}
 	bool refill_send_buffer (void) {
 		QElapsedTimer timer;
@@ -714,7 +691,7 @@ private:
 	Status status;
 
 signals:
-	void status_changed (Status new_status);
+	void status_changed (Status new_status, Status old_status);
 
 public:
 	Download (QAbstractSocket * socket, QObject * parent = nullptr)
@@ -746,8 +723,9 @@ public:
 
 private:
 	void set_status (Status new_status) {
+		auto old = status;
 		status = new_status;
-		emit status_changed (new_status);
+		emit status_changed (new_status, old);
 	}
 
 	void on_handshake_completed (void) Q_DECL_OVERRIDE {

@@ -62,19 +62,19 @@ Done:
 	* peer list:
 		* automatically filled by discovery
 		* supports manual peers (added by ip/port)
-	* transfers: working (basic)
+	* transfers:
+		* can manage multiple transfers
 	* nice icons (credits to http://picol.org)
 * console interface:
 	* batch mode supported
 * transfer protocol:
+	* used by both cli and gui
 	* use chunks and file mapping for perf
 	* can send directories or simple files
 	* transfers are only shown when enough details has been gathered (file list)
 
 Todo:
-* gui:
-	* use new protocol
-	* fix strings
+* protocol / gui / cli: support restarts ?
 * get attention if minimized (modified icon / OS specific way)
 * distant peers:
 	* upnp firewall opening for distant peers ? (dangerous)

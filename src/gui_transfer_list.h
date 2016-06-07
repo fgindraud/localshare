@@ -11,22 +11,33 @@
 #include <QTreeView>
 
 #include "core_localshare.h"
+#include "core_transfer.h"
 #include "gui_button_delegate.h"
 #include "gui_struct_item_model.h"
 #include "gui_style.h"
 
-namespace Transfer {
+namespace TransferList {
 
-/* Base transfer item class.
- * Subclassed by upload or download.
- * TODO make them use a Transfer::Base to get most info
+/* Base transfer item class, subclassed by upload of download.
+ *
+ * It will take ownership of a transfer object.
+ * This object is used as a Transfer::Base to show common stuff.
+ * It also manages the delete button.
  */
 class Item : public StructItem {
 	Q_OBJECT
 
 public:
 	// Fields that are supported
-	enum Field { FilenameField, PeerField, SizeField, ProgressField, StatusField, NbFields };
+	enum Field {
+		FilenameField,
+		PeerField,
+		SizeField,
+		ProgressField,
+		RateField,
+		StatusField,
+		NbFields
+	};
 
 	// Buttons (see src/button_delegate.h)
 	enum Role { ButtonRole = ButtonDelegate::ButtonRole };
@@ -39,10 +50,102 @@ public:
 	};
 	Q_DECLARE_FLAGS (Buttons, Button);
 
-public:
-	Item (QObject * parent = nullptr) : StructItem (NbFields, parent) {}
+private:
+	QString rate;
+	Transfer::Base * base;
+	const Payload::Manager & payload;
 
-	virtual void button_clicked (int field, Button btn) = 0;
+public:
+	Item (Transfer::Base * transfer, QObject * parent = nullptr)
+	    : StructItem (NbFields, parent), base (transfer), payload (transfer->get_payload ()) {
+		base->setParent (this);
+		connect (base->get_notifier (), &Transfer::Notifier::instant_rate, this, &Item::set_rate);
+		connect (base->get_notifier (), &Transfer::Notifier::progressed, this, &Item::progressed);
+	}
+
+	QVariant data (int field, int role) const Q_DECL_OVERRIDE {
+		switch (field) {
+		case FilenameField: {
+			// Transfer name, (in subclass:) local path, transfer type icon.
+			switch (role) {
+			case Qt::DisplayRole:
+				return payload.get_payload_name ();
+			}
+		} break;
+		case PeerField: {
+			// Peer username, network info.
+			switch (role) {
+			case Qt::DisplayRole:
+				return base->get_peer_username ();
+			case Qt::StatusTipRole:
+			case Qt::ToolTipRole:
+				return base->get_connection_info ();
+			}
+		} break;
+		case SizeField: {
+			// Transfer size (human readable and detailed).
+			switch (role) {
+			case Qt::DisplayRole:
+				return size_to_string (payload.get_total_size ());
+			case Qt::StatusTipRole:
+			case Qt::ToolTipRole:
+				return tr ("%1B in %2 files").arg (payload.get_total_size ()).arg (payload.get_nb_files ());
+			}
+		} break;
+		case ProgressField: {
+			// Progress bar, and details.
+			switch (role) {
+			case Qt::DisplayRole:
+				return int((100 * payload.get_total_transfered_size ()) / payload.get_total_size ());
+			case Qt::StatusTipRole:
+			case Qt::ToolTipRole:
+				return tr ("%1/%2 (files: %3/%4)")
+				    .arg (size_to_string (payload.get_total_transfered_size ()),
+				          size_to_string (payload.get_total_size ()))
+				    .arg (payload.get_nb_files_transfered ())
+				    .arg (payload.get_nb_files ());
+			}
+		} break;
+		case RateField: {
+			// Instant rate, then average rate.
+			if (role == Qt::DisplayRole)
+				return rate;
+		} break;
+		case StatusField: {
+			if (role == Item::ButtonRole)
+				return int(Item::DeleteButton); // all items have a delete button
+		} break;
+		}
+		return {};
+	}
+
+	QVariant compare_data (int field) const Q_DECL_OVERRIDE {
+		switch (field) {
+		case SizeField:
+			return payload.get_total_size ();
+		default:
+			return StructItem::compare_data (field);
+		}
+	}
+	
+	virtual bool button_clicked (int, Button btn) {
+		// Return true if event has been handled to stop further handling
+		if (btn == Item::DeleteButton) {
+			deleteLater ();
+			return true;
+		}
+		return false;
+	}
+
+protected slots:
+	void set_rate (qint64 new_rate_bps) {
+		rate = tr ("%1/s").arg (size_to_string (new_rate_bps));
+		emit data_changed (RateField, RateField, QVector<int>{Qt::DisplayRole});
+	}
+	void progressed (void) {
+		emit data_changed (ProgressField, ProgressField,
+		                   QVector<int>{Qt::DisplayRole, Qt::StatusTipRole, Qt::ToolTipRole});
+	}
 };
 Q_DECLARE_OPERATORS_FOR_FLAGS (Item::Buttons);
 
@@ -67,6 +170,8 @@ public:
 			return tr ("File size");
 		case Item::ProgressField:
 			return tr ("Transferred");
+		case Item::RateField:
+			return tr ("Rate");
 		case Item::StatusField:
 			return tr ("Status");
 		default:
@@ -77,7 +182,7 @@ public:
 public slots:
 	void button_clicked (const QModelIndex & index, int btn) {
 		if (has_item (index))
-			return get_item_t<Item *> (index)->button_clicked (index.column (), Item::Button (btn));
+			get_item_t<Item *> (index)->button_clicked (index.column (), Item::Button (btn));
 	}
 };
 

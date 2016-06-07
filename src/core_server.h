@@ -10,26 +10,6 @@
 
 namespace Transfer {
 
-// FIXME old object, will be deleted soon
-class ServerOld : public QObject {
-	Q_OBJECT
-private:
-	QTcpServer server;
-
-signals:
-	void new_connection (QAbstractSocket * socket);
-
-public:
-	ServerOld (QObject * parent = nullptr) : QObject (parent) {
-		server.listen (); // any port
-		connect (&server, &QTcpServer::newConnection, [this] {
-			auto socket = server.nextPendingConnection ();
-			emit new_connection (socket);
-		});
-	}
-	quint16 port (void) const { return server.serverPort (); }
-};
-
 /* Receive and store incoming download request.
  * When they have all metadata ready, give them to the rest of the application.
  * A QObject should be tied to download_ready().

@@ -26,9 +26,8 @@
 #include "gui_discovery_subsystem.h"
 #include "gui_peer_list.h"
 #include "gui_style.h"
-#include "gui_transfer_download.h"
 #include "gui_transfer_list.h"
-#include "gui_transfer_upload.h"
+#include "gui_transfers.h"
 
 /* Main window of application.
  * Handles most high level GUI functions (the rest is provided by view/models).
@@ -50,14 +49,14 @@ private:
 
 	QAbstractItemView * peer_list_view{nullptr};
 	PeerList::Model * peer_list_model{nullptr};
-	Transfer::Model * transfer_list_model{nullptr};
+	TransferList::Model * transfer_list_model{nullptr};
 
 public:
 	Window (QWidget * parent = nullptr) : QMainWindow (parent) {
 		{
 			// Start Server
-			auto server = new Transfer::ServerOld (this);
-			connect (server, &Transfer::ServerOld::new_connection, this, &Window::incoming_connection);
+			auto server = new Transfer::Server (this);
+			connect (server, &Transfer::Server::download_ready, this, &Window::new_download);
 
 			// Local peer
 			using Discovery::LocalDnsPeer;
@@ -76,11 +75,16 @@ public:
 		}
 
 		// Common actions
-		auto action_send = new QAction (Icon::send (), tr ("&Send..."), this);
-		action_send->setShortcuts (QKeySequence::Open);
-		action_send->setEnabled (false);
-		action_send->setStatusTip (tr ("Chooses a file to send to selected peers"));
-		connect (action_send, &QAction::triggered, this, &Window::action_send_clicked);
+		auto action_send_file = new QAction (Icon::send_file (), tr ("Send &File..."), this);
+		action_send_file->setShortcuts (QKeySequence::Open); // Only one can get the shortcut...
+		action_send_file->setEnabled (false);
+		action_send_file->setStatusTip (tr ("Chooses a file to send to selected peers"));
+		connect (action_send_file, &QAction::triggered, this, &Window::action_send_file_clicked);
+
+		auto action_send_dir = new QAction (Icon::send_dir (), tr ("Send &Directory..."), this);
+		action_send_dir->setEnabled (false);
+		action_send_dir->setStatusTip (tr ("Chooses a directory to send to selected peers"));
+		connect (action_send_dir, &QAction::triggered, this, &Window::action_send_dir_clicked);
 
 		auto action_add_peer = new QAction (Icon::add_peer (), tr ("&Add manual peer"), this);
 		action_add_peer->setStatusTip (tr ("Add a peer entry to fill manually"));
@@ -108,14 +112,15 @@ public:
 
 			connect (view->selectionModel (), &QItemSelectionModel::selectionChanged,
 			         [=](const QItemSelection & selection) {
-				         action_send->setEnabled (!selection.isEmpty ());
+				         action_send_file->setEnabled (!selection.isEmpty ());
+				         action_send_dir->setEnabled (!selection.isEmpty ());
 				       });
 		}
 
 		// Transfer table
 		{
-			auto view = new Transfer::View (splitter);
-			auto model = new Transfer::Model (view);
+			auto view = new TransferList::View (splitter);
+			auto model = new TransferList::Model (view);
 			view->setModel (model);
 			transfer_list_model = model;
 		}
@@ -142,7 +147,8 @@ public:
 		// File menu
 		{
 			auto file = menuBar ()->addMenu (tr ("&Application"));
-			file->addAction (action_send);
+			file->addAction (action_send_file);
+			file->addAction (action_send_dir);
 			file->addAction (action_add_peer);
 			file->addSeparator ();
 			file->addAction (action_quit);
@@ -167,7 +173,8 @@ public:
 			connect (send_hidden_files, &QAction::triggered,
 			         [=](bool checked) { Settings::UploadHidden ().set (checked); });
 
-			auto download_path = new QAction (tr ("Set default download &path..."), pref);
+			auto download_path =
+			    new QAction (Icon::change_download_path (), tr ("Set default download &path..."), pref);
 			download_path->setStatusTip (tr ("Sets the path used by default to store downloaded files."));
 			connect (download_path, &QAction::triggered, [=](void) {
 				Settings::DownloadPath path;
@@ -177,14 +184,16 @@ public:
 					path.set (new_path);
 			});
 
-			auto download_auto = new QAction (tr ("Always &accept downloads"), pref);
+			auto download_auto =
+			    new QAction (Icon::download_auto (), tr ("Always &accept downloads"), pref);
 			download_auto->setCheckable (true);
 			download_auto->setChecked (Settings::DownloadAuto ().get ());
 			download_auto->setStatusTip (tr ("Enable automatic accept of all incoming download offers."));
 			connect (download_auto, &QAction::triggered,
 			         [=](bool checked) { Settings::DownloadAuto ().set (checked); });
 
-			auto change_username = new QAction (tr ("Change &username..."), pref);
+			auto change_username =
+			    new QAction (Icon::change_username (), tr ("Change &username..."), pref);
 			change_username->setStatusTip ("Set a new username in settings and discovery");
 			connect (change_username, &QAction::triggered, [=](void) {
 				QString new_username =
@@ -226,7 +235,8 @@ public:
 			auto tool_bar = addToolBar (tr ("Application"));
 			tool_bar->setMovable (false);
 			tool_bar->setObjectName ("toolbar");
-			tool_bar->addAction (action_send);
+			tool_bar->addAction (action_send_file);
+			tool_bar->addAction (action_send_dir);
 			tool_bar->addAction (action_add_peer);
 		}
 
@@ -268,19 +278,24 @@ private slots:
 			setVisible (!isVisible ()); // Toggle window visibility
 	}
 
-	void action_send_clicked (void) {
+	void action_send_file_clicked (void) {
 		// Select and send file to selection if clicked
-		auto filepath = QFileDialog::getOpenFileName (this, tr ("Choose file to send..."));
+		auto filepath = QFileDialog::getOpenFileName (this, tr ("Choose file to send"));
 		if (filepath.isEmpty ())
 			return;
-		auto selection = peer_list_view->selectionModel ()->selectedIndexes ();
-		for (auto & index : selection) {
-			if (index.column () == 0 && peer_list_model->has_item (index)) {
-				// TreeView selected row generates 4 selection items ; only keep 1 per row
-				request_upload (peer_list_model->get_item_t<PeerList::Item *> (index)->get_peer (),
-				                filepath);
-			}
-		}
+		auto selection = peer_list_view->selectionModel ()->selectedRows ();
+		for (auto & index : selection)
+			request_upload (peer_list_model->get_item_t<PeerList::Item *> (index)->get_peer (), filepath);
+	}
+
+	void action_send_dir_clicked (void) {
+		// Select and send directory to selection if clicked
+		auto dirpath = QFileDialog::getExistingDirectory (this, tr ("Choose directory to send"));
+		if (dirpath.isEmpty ())
+			return;
+		auto selection = peer_list_view->selectionModel ()->selectedRows ();
+		for (auto & index : selection)
+			request_upload (peer_list_model->get_item_t<PeerList::Item *> (index)->get_peer (), dirpath);
 	}
 
 	// Peer creation
@@ -300,14 +315,20 @@ private slots:
 	// Transfer creation
 
 	void request_upload (const Peer & peer, const QString & filepath) {
-		auto upload =
-		    new Transfer::UploadOld (peer, filepath, local_peer->get_username (), transfer_list_model);
-		transfer_list_model->append (upload);
+		// TODO move to a more event-like management (for file list building) ?
+		auto upload = new Transfer::Upload (peer.username, local_peer->get_username ());
+		// Link to item to catch any error, then load files
+		auto item = new TransferList::Upload (upload, this);
+		if (!upload->set_payload (filepath, Settings::UploadHidden ().get ()))
+			return;
+		// Only then connect and show the item
+		upload->connect (peer.address, peer.port);
+		transfer_list_model->append (item);
 	}
 
-	void incoming_connection (QAbstractSocket * connection) {
-		auto download = new Transfer::DownloadOld (connection);
-		transfer_list_model->append (download);
+	void new_download (Transfer::Download * download) {
+		auto item = new TransferList::Download (download, this);
+		transfer_list_model->append (item);
 	}
 
 	// About message

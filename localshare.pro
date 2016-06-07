@@ -50,7 +50,7 @@ win32: { # Win
 
 # Misc information
 
-VERSION = 0.3
+VERSION = 1.0
 DEFINES += LOCALSHARE_VERSION=$${VERSION}
 
 QMAKE_TARGET_COMPANY = Francois Gindraud
@@ -71,9 +71,8 @@ HEADERS += \
 	src/gui_peer_list.h \
 	src/gui_struct_item_model.h \
 	src/gui_style.h \
-	src/gui_transfer_download.h \
 	src/gui_transfer_list.h \
-	src/gui_transfer_upload.h \
+	src/gui_transfers.h \
 	src/gui_window.h
 SOURCES += src/gui_main.cpp
 

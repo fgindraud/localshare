@@ -1,11 +1,15 @@
 <!DOCTYPE RCC><RCC version="1.0">
 <qresource>
-	<file>icon.svg</file>
-	<file>upload.svg</file>
+	<file>change_username.svg</file>
 	<file>download.svg</file>
+	<file>download_auto.svg</file>
+	<file>download_path.svg</file>
+	<file>icon.svg</file>
 	<file>peer_add.svg</file>
 	<file>peer_remove.svg</file>
-	<file>send_file.svg</file>
 	<file>restart_discovery.svg</file>
+	<file>send_file.svg</file>
+	<file>send_directory.svg</file>
+	<file>upload.svg</file>
 </qresource>
 </RCC>

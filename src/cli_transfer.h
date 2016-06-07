@@ -78,10 +78,10 @@ void status_changed_helper (Status new_status, const Transfer::Notifier * notifi
 		verbose_print (tr ("Transfer started.\n"));
 	} break;
 	case Status::Completed: {
-		auto elapsed = QTime (0, 0, 0).addMSecs (notifier->get_transfer_time ());
 		verbose_print (tr ("Transfer complete (%1 at %2/s in %3).\n")
 		                   .arg (size_to_string (notifier->payload.get_total_size ()),
-		                         size_to_string (notifier->get_average_rate ()), elapsed.toString ()));
+		                         size_to_string (notifier->get_average_rate ()),
+		                         msec_to_string (notifier->get_transfer_time ())));
 		exit_nicely ();
 	} break;
 	case Status::Rejected: {
