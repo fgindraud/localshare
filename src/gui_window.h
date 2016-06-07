@@ -1,3 +1,19 @@
+/* Localshare - Small file sharing application for the local network.
+ * Copyright (C) 2016 Francois Gindraud
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 #pragma once
 #ifndef GUI_WINDOW_H
 #define GUI_WINDOW_H
@@ -29,6 +45,8 @@
 #include "gui_transfer_list.h"
 #include "gui_transfers.h"
 
+namespace Gui {
+
 /* Main window of application.
  * Handles most high level GUI functions (the rest is provided by view/models).
  * It also link together functionnality from peer list, transfer list, discovery.
@@ -43,7 +61,7 @@ class Window : public QMainWindow {
 
 private:
 	Discovery::LocalDnsPeer * local_peer{nullptr};
-	Discovery::SubSystem * discovery_subsystem{nullptr};
+	DiscoverySubSystem * discovery_subsystem{nullptr};
 
 	QSystemTrayIcon * tray{nullptr};
 
@@ -68,9 +86,9 @@ public:
 			connect (local_peer, &LocalDnsPeer::username_changed, this, &Window::set_window_title);
 
 			// Restartable discovery system
-			discovery_subsystem = new Discovery::SubSystem (local_peer, this);
+			discovery_subsystem = new DiscoverySubSystem (local_peer, this);
 			setStatusBar (discovery_subsystem);
-			connect (discovery_subsystem, &Discovery::SubSystem::new_discovered_peer, this,
+			connect (discovery_subsystem, &DiscoverySubSystem::new_discovered_peer, this,
 			         &Window::new_discovered_peer);
 		}
 
@@ -158,7 +176,7 @@ public:
 		{
 			auto pref = menuBar ()->addMenu (tr ("&Preferences"));
 
-			auto use_tray = new QAction (tr ("Use System &Tray"), pref);
+			auto use_tray = new QAction (Icon::system_tray (), tr ("Use System &Tray"), pref);
 			use_tray->setCheckable (true);
 			use_tray->setChecked (setting_show_tray);
 			use_tray->setStatusTip (tr ("Enables use of persistent system tray icon"));
@@ -166,7 +184,7 @@ public:
 			connect (use_tray, &QAction::triggered,
 			         [=](bool checked) { Settings::UseTray ().set (checked); });
 
-			auto send_hidden_files = new QAction (tr ("Send &hidden files"), pref);
+			auto send_hidden_files = new QAction (Icon::hidden_files (), tr ("Send &hidden files"), pref);
 			send_hidden_files->setCheckable (true);
 			send_hidden_files->setChecked (Settings::UploadHidden ().get ());
 			send_hidden_files->setStatusTip (tr ("Also send hidden files when sending a directory."));
@@ -368,10 +386,14 @@ private slots:
 		        "Options can be found by calling %1 with option --help.</p>"
 
 		        "<p>Copyright (C) 2016 François Gindraud.</p>"
+		        "<p>This program comes with ABSOLUTELY NO WARRANTY. "
+		        "This is free software, "
+		        "and you are welcome to redistribute it under certain conditions.</p>"
 		        "<p><a href=\"https://github.com/lereldarion/qt-localshare\">Github Link</a></p>")
 		        .arg (Const::app_display_name));
 		msg->exec ();
 	}
 };
+}
 
 #endif

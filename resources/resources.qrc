@@ -4,12 +4,14 @@
 	<file>download.svg</file>
 	<file>download_auto.svg</file>
 	<file>download_path.svg</file>
+	<file>hidden_files.svg</file>
 	<file>icon.svg</file>
 	<file>peer_add.svg</file>
 	<file>peer_remove.svg</file>
 	<file>restart_discovery.svg</file>
 	<file>send_file.svg</file>
 	<file>send_directory.svg</file>
+	<file>system_tray.svg</file>
 	<file>upload.svg</file>
 </qresource>
 </RCC>

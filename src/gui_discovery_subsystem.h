@@ -1,3 +1,19 @@
+/* Localshare - Small file sharing application for the local network.
+ * Copyright (C) 2016 Francois Gindraud
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 #pragma once
 #ifndef GUI_DISCOVERY_SUBSYSTEM_H
 #define GUI_DISCOVERY_SUBSYSTEM_H
@@ -10,7 +26,7 @@
 #include "core_discovery.h"
 #include "gui_style.h"
 
-namespace Discovery {
+namespace Gui {
 /* Discovery subsystem.
  * It allows to dynamically manage discovery services.
  *
@@ -25,10 +41,16 @@ namespace Discovery {
  * This button will clear errors and restart all dead services.
  * ServiceRecord and Browser will emit being_destroyed on destruction, with a possible error.
  */
-class SubSystem : public QStatusBar {
+class DiscoverySubSystem : public QStatusBar {
 	Q_OBJECT
 
 private:
+	// Shorter names
+	using LocalDnsPeer = Discovery::LocalDnsPeer;
+	using ServiceRecord = Discovery::ServiceRecord;
+	using Browser = Discovery::Browser;
+	using SubSystem = DiscoverySubSystem;
+
 	LocalDnsPeer * local_peer;
 
 	ServiceRecord * service_record{nullptr};
@@ -43,7 +65,7 @@ signals:
 	void new_discovered_peer (Discovery::DnsPeer * peer);
 
 public:
-	SubSystem (LocalDnsPeer * local_peer_, QWidget * parent = nullptr)
+	DiscoverySubSystem (LocalDnsPeer * local_peer_, QWidget * parent = nullptr)
 	    : QStatusBar (parent), local_peer (local_peer_) {
 		// Create widgets of status bar
 		warning_symbol = new QLabel (this);

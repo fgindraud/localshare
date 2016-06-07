@@ -2,12 +2,14 @@ Localshare - Local file sharing application
 ===========================================
 
 [![Build Status](https://travis-ci.org/lereldarion/qt-localshare.svg?branch=master)](https://travis-ci.org/lereldarion/qt-localshare)
+[![Localshare License](https://img.shields.io/badge/license-GPL3-blue.svg)](#license)
+[![Latest release](https://img.shields.io/github/release/lereldarion/qt-localshare.svg)](https://github.com/lereldarion/qt-localshare/releases/latest)
 
 Small graphical application to send a file to a local peer.
 Peers on the local network are automatically discovered using Zeroconf mDNS service discovery.
 Distant peers can be manually added by filling ip and port (but performing a transfer requires an open firewall on the destination).
 
-A command line interface is also available, and should work without requiring any graphical stack support.
+A command line interface is also availablei (see `localshare --help`), and should work without requiring any graphical stack support.
 The project can also be compiled with only the command line interface (see `localshare.pro`), reducing dependencies and executable size.
 
 Setup
@@ -64,7 +66,6 @@ Done:
 		* supports manual peers (added by ip/port)
 	* transfers:
 		* can manage multiple transfers
-	* nice icons (credits to http://picol.org)
 * console interface:
 	* batch mode supported
 * transfer protocol:
@@ -74,7 +75,14 @@ Done:
 	* transfers are only shown when enough details has been gathered (file list)
 
 Todo:
+* CLI:
+	* list peers
+	* piping files ?
 * protocol / gui / cli: support restarts ?
+* directories:
+	* better file listing for large dirs (step in gui)
+	* see content before sending (uncheck stuff to not send it)
+	* see content before downloading (and uncheck stuff too ?)
 * get attention if minimized (modified icon / OS specific way)
 * distant peers:
 	* upnp firewall opening for distant peers ? (dangerous)
@@ -89,3 +97,25 @@ String status (if you want to translate):
 	* Small formats strings: use QStringLiteral
 	* Left raw if perf is not needed (one time use)
 
+License
+-------
+
+```
+Localshare - Small file sharing application for the local network.
+Copyright (C) 2016 Francois Gindraud
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+```
+
+Icons from [picol](http://picol.org/) under the [Creative Commons-License BY](http://creativecommons.org/licenses/by/3.0/).
