@@ -24,6 +24,7 @@ HEADERS += \
 	\
 	src/cli_indicator.h \
 	src/cli_main.h \
+	src/cli_misc.h \
 	src/cli_transfer.h
 SOURCES += \
 	src/cli_main.cpp \

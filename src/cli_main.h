@@ -29,6 +29,7 @@ void draw_progress_indicator (const Indicator::Item &);
 
 void verbose_print (const QString & msg);
 void normal_print (const QString & msg);
+void always_print (const QString & msg);
 void error_print (const QString & msg);
 void exit_nicely (void);
 void exit_error (void);

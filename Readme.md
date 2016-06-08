@@ -67,7 +67,8 @@ Done:
 	* transfers:
 		* can manage multiple transfers
 * console interface:
-	* batch mode supported
+	* single upload/download
+	* list peers
 * transfer protocol:
 	* used by both cli and gui
 	* use chunks and file mapping for perf
@@ -76,8 +77,9 @@ Done:
 
 Todo:
 * CLI:
-	* list peers
 	* piping files ?
+* gui:
+	* better column width management
 * protocol / gui / cli: support restarts ?
 * directories:
 	* better file listing for large dirs (step in gui)

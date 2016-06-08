@@ -374,20 +374,26 @@ private:
 
 /* Browser object.
  * Starts browsing at creation, stops at destruction.
- * Emits added/removed signals to indicate changes to peer list.
+ * Emits added to signal a new peer.
+ * Peer removal is signaled by the destruction of corresponding DnsPeer objects.
+ *
+ * The Bonjour api sends peer info in batch (especially during startup).
+ * end_of_batch is emitted when such a batch has ended.
  *
  * It owns DnsPeer objects representing discovered peers.
  * DnsPeer objects will be destroyed when the peer disappears.
  * They are all destroyed when the Browser dies.
- *
- * The local_peer username might be changed ; currently nothing reacts to it.
- * The filtering test will use the new name without care.
+ * The local_peer username might be changed, the new name will be removed from peers.
  */
 class Browser : public DnsSocket {
 	Q_OBJECT
 
+private:
+	bool callback_more_coming{false}; // Last value from bonjour
+
 signals:
-	void added (DnsPeer *);
+	void added (DnsPeer * peer);
+	void end_of_batch (void);
 
 public:
 	Browser (LocalDnsPeer * local_peer) : DnsSocket (local_peer) {
@@ -409,14 +415,12 @@ private:
 			c->failure (error_code);
 			return;
 		}
+		c->callback_more_coming = flags & kDNSServiceFlagsMoreComing;
 		if (flags & kDNSServiceFlagsAdd) {
 			// Peer is added, find its contact info
 			auto r = new Resolver (interface_index, service_name, regtype, domain, c);
 			connect (r, &Resolver::peer_resolved, c, &Browser::peer_resolved);
-			connect (r, &Resolver::being_destroyed, [=](const QString & msg) {
-				if (!msg.isEmpty ())
-					qWarning ("Browser[%p]: Resolver failure: %s", c, qUtf8Printable (msg));
-			});
+			connect (r, &Resolver::being_destroyed, c, &Browser::resolver_destroyed);
 		} else {
 			// Peer is removed
 			if (auto p = c->find_peer_by_service_name (service_name)) {
@@ -443,6 +447,14 @@ private slots:
 				qDebug ("Browser[%p]: ignoring \"%s\"", this, qUtf8Printable (peer->get_service_name ()));
 			}
 		}
+	}
+
+	void resolver_destroyed (const QString & error) {
+		if (!error.isEmpty ())
+			qWarning ("Browser[%p]: Resolver failure: %s", this, qUtf8Printable (error));
+		if (!callback_more_coming &&
+		    findChildren<Resolver *> (QString (), Qt::FindDirectChildrenOnly).isEmpty ())
+			emit end_of_batch (); // End of batch if no in flight Resolver and no more from bonjour
 	}
 
 	void service_name_changed (void) {

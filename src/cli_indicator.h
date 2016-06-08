@@ -132,6 +132,8 @@ namespace Indicator {
 					buf += e.item.draw (s);
 				}
 			}
+			if (buf.size () < len)
+				buf += QString (len - buf.size (), ' '); // Fill with blanks
 			return buf;
 		}
 	};

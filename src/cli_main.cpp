@@ -24,6 +24,7 @@
 #include "cli_indicator.h"
 #include "cli_main.h"
 #include "cli_transfer.h"
+#include "cli_misc.h"
 #include "compatibility.h"
 #include "core_transfer.h"
 #include "portability.h"
@@ -72,6 +73,10 @@ void normal_print (const QString & msg) {
 	insert_newline_if_needed ();
 	print (stdout, msg, NormalLevel);
 }
+void always_print (const QString & msg) {
+	insert_newline_if_needed ();
+	print (stdout, msg, QuietLevel);
+}
 void error_print (const QString & msg) {
 	insert_newline_if_needed ();
 	print (stderr, msg, QuietLevel);
@@ -97,14 +102,16 @@ int start (int & argc, char **& argv) {
 	    tr ("Small file sharing application for the local network.\n"
 	        "\n"
 	        "No options: use graphical mode.\n"
-	        "Upload and download mode are exclusive.\n"
+	        "Command line mode is enabled when you specify either Upload, Download, or List mode.\n"
+	        "The three CLI modes are exclusive.\n"
 	        "Returns 0 if the transfer completed correctly, 1 otherwise.\n"
 	        "\n"
 	        "Usage example:\n"
 	        "$ %1 -u <file> -p <destination_username>   # Upload\n"
 	        "$ %1 -d   # Download from anyone\n"
 	        "$ %1 -d -p <peer>   # Download from <peer> only\n"
-	        "$ %1 -d -n <username>   # Download as destination <username>")
+	        "$ %1 -d -n <username>   # Download as destination <username>\n"
+	        "$ %1 -l   # List connected peers")
 	        .arg (Const::app_name));
 	auto help_opt = parser.addHelpOption ();
 	QCommandLineOption version_opt (QStringList () << "V"
@@ -119,6 +126,10 @@ int start (int & argc, char **& argv) {
 	                                              << "upload",
 	                               tr ("Uploads a file to <peer>."), tr ("filename"));
 	parser.addOption (upload_opt);
+	QCommandLineOption list_peer_opt (QStringList () << "l"
+	                                                 << "list",
+	                                  tr ("List peers mode"));
+	parser.addOption (list_peer_opt);
 	QCommandLineOption username_opt (QStringList () << "n"
 	                                                << "name",
 	                                 tr ("Local Zeroconf username"), tr ("username"),
@@ -162,19 +173,32 @@ int start (int & argc, char **& argv) {
 		verbosity = QuietLevel;
 	old_handler = qInstallMessageHandler (suppress_output_handler);
 
+	const auto list_mode = parser.isSet (list_peer_opt);
 	const auto download_mode = parser.isSet (download_opt);
 	const auto upload_mode = parser.isSet (upload_opt);
 
-	if (download_mode && upload_mode) {
+	int nb_mode_requested = 0;
+	if (list_mode)
+		nb_mode_requested++;
+	if (download_mode)
+		nb_mode_requested++;
+	if (upload_mode)
+		nb_mode_requested++;
+	if (nb_mode_requested > 1) {
 		QTextStream (stderr) << tr (
-		    "Error: upload and download modes are exclusive (see -h for help).\n");
+		    "Error: modes are exclusive, only one must be set (see -h for help).\n");
 		return EXIT_FAILURE;
 	}
-	if (!download_mode && !upload_mode) {
+	if (nb_mode_requested == 0) {
 		QTextStream (stderr) << tr ("Error: no mode set (see -h for help).\n");
 		return EXIT_FAILURE;
 	}
 
+	if (list_mode) {
+		// List and quit
+		PeerBrowser browser;
+		return app.exec ();
+	}
 	if (upload_mode) {
 		// Upload
 		if (!parser.isSet (peer_opt)) {

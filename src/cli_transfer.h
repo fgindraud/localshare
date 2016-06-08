@@ -126,7 +126,7 @@ private:
 	const QString file_path;
 	const bool send_hidden_files;
 
-	Discovery::LocalDnsPeer local_peer;
+	Discovery::LocalDnsPeer local_peer; // dummy
 	Discovery::Browser * browser{nullptr};
 	Transfer::Upload upload;
 

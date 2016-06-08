@@ -36,7 +36,7 @@ Serialized serialized_info;
  */
 static bool is_console_mode (int argc, const char * const * argv) {
 	static const char * trigger_console_mode[] = {
-	    "-d", "--download", "-u", "--upload", "-h", "--help", "-V", "--version", nullptr};
+	    "-d", "--download", "-u", "--upload", "-l", "--list", "-h", "--help", "-V", "--version", nullptr};
 	for (int i = 1; i < argc; ++i)
 		for (int j = 0; trigger_console_mode[j] != nullptr; ++j)
 			if (qstrncmp (argv[i], trigger_console_mode[j], qstrlen (trigger_console_mode[j])) == 0)
