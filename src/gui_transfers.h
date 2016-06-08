@@ -71,18 +71,18 @@ namespace TransferList {
 					case Status::Error:
 						return upload->get_error ();
 					case Status::Init:
-						return tr ("Initializing Upload");
+						return tr ("Initializing");
 					case Status::Starting:
 						return tr ("Connecting");
 					case Status::WaitingForPeerAnswer:
-						return tr ("Waiting for peer answer");
+						return tr ("Waiting answer");
 					case Status::Transfering:
 						return tr ("Transfering");
 					case Status::Completed:
-						return tr ("Transfer completed in %1")
+						return tr ("Completed in %1")
 						    .arg (msec_to_string (upload->get_notifier ()->get_transfer_time ()));
 					case Status::Rejected:
-						return tr ("Transfer rejected by peer");
+						return tr ("Rejected by peer");
 					}
 				}
 			} break;
@@ -160,14 +160,14 @@ namespace TransferList {
 						Q_UNREACHABLE (); // Server gives us download objects in WaitingUserChoice
 						break;
 					case Status::WaitingForUserChoice:
-						return tr ("Accept proposed download ?");
+						return tr ("Accept ?");
 					case Status::Transfering:
 						return tr ("Transfering");
 					case Status::Completed:
-						return tr ("Transfer completed in %1")
+						return tr ("Completed in %1")
 						    .arg (msec_to_string (download->get_notifier ()->get_transfer_time ()));
 					case Status::Rejected:
-						return tr ("Transfer rejected");
+						return tr ("Rejected");
 					}
 				} break;
 				case Item::ButtonRole: {

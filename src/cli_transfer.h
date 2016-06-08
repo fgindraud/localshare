@@ -150,7 +150,7 @@ public slots:
 		new ProgressIndicator (upload.get_notifier ());
 
 		auto & payload = upload.get_payload ();
-		verbose_print (tr ("Upload payload is %1 (%2 files, total size=%3).\n")
+		verbose_print (tr ("Upload payload: %1 (%2 files, total size=%3).\n")
 		                   .arg (payload.get_payload_dir_display (),
 		                         QString::number (payload.get_nb_files ()),
 		                         size_to_string (payload.get_total_size ())));

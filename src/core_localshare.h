@@ -60,8 +60,8 @@ constexpr auto max_work_msec = qint64 (100); // maximum time spent out of the ev
 
 // Transfer notifier parameters
 constexpr auto rate_update_interval_msec = qint64 (1000 / 3); // should be bigger than progress
-constexpr auto progress_history_window_msec = rate_update_interval_msec;
-constexpr auto progress_history_window_elem = 10;
+constexpr auto progress_history_window_msec = 1000;
+constexpr auto progress_history_window_elem = 20;
 constexpr auto progress_update_interval_msec = qint64 (1000 / 10); // 10 fps max
 
 // Setup app object (graphical and console version)

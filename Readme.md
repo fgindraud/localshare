@@ -78,8 +78,6 @@ Done:
 Todo:
 * CLI:
 	* piping files ?
-* gui:
-	* better column width management
 * protocol / gui / cli: support restarts ?
 * directories:
 	* better file listing for large dirs (step in gui)

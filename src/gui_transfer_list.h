@@ -179,7 +179,9 @@ namespace TransferList {
 
 		QVariant headerData (int section, Qt::Orientation orientation,
 		                     int role = Qt::DisplayRole) const {
-			if (!(role == Qt::DisplayRole && orientation == Qt::Horizontal))
+			if (orientation != Qt::Horizontal)
+				return {};
+			if (role != Qt::DisplayRole)
 				return {};
 			switch (section) {
 			case Item::FilenameField:
@@ -187,7 +189,7 @@ namespace TransferList {
 			case Item::PeerField:
 				return tr ("Peer");
 			case Item::SizeField:
-				return tr ("File size");
+				return tr ("Size");
 			case Item::ProgressField:
 				return tr ("Transferred");
 			case Item::RateField:
@@ -299,6 +301,10 @@ namespace TransferList {
 			h->setStretchLastSection (false);
 			h->setSectionResizeMode (QHeaderView::ResizeToContents);
 			h->setSectionResizeMode (Item::ProgressField, QHeaderView::Stretch);
+			h->setSectionResizeMode (Item::RateField, QHeaderView::Fixed);
+			auto fm = fontMetrics ();
+			h->resizeSection (Item::RateField,
+			                  qMax (fm.width (tr (" 123.45MiB/s ")), fm.width (tr ("Rate"))));
 		}
 
 	private:
