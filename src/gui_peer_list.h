@@ -206,9 +206,6 @@ namespace PeerList {
 				// Set address, lookup hostname
 				if (!peer.address.setAddress (value.toString ()))
 					return false;
-				if (!peer.address.isNull ())
-					QHostInfo::lookupHost (peer.address.toString (), this,
-					                       SLOT (hostname_lookup_complete (QHostInfo)));
 				break;
 			}
 			case PortField:
@@ -225,12 +222,6 @@ namespace PeerList {
 			if (!address.isNull ()) {
 				peer.address = address;
 				edited_data (AddressField);
-			}
-		}
-		void hostname_lookup_complete (const QHostInfo & info) {
-			if (info.error () == QHostInfo::NoError && !info.hostName ().isEmpty ()) {
-				peer.hostname = info.hostName ();
-				edited_data (HostnameField);
 			}
 		}
 	};

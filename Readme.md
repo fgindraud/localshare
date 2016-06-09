@@ -76,6 +76,10 @@ Done:
 	* transfers are only shown when enough details has been gathered (file list)
 
 Todo:
+* Ip resolving (gui, mostly):
+	* caching is bad (hostname ip can change...):
+		* need to support both manual (by ip) and auto (by hostname) peers at the same time.
+		* auto: ip is just indication, and is recomputed at every transfer ?
 * CLI:
 	* piping files ?
 * protocol / gui / cli: support restarts ?

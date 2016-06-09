@@ -258,6 +258,7 @@ private:
 	Message::CodeType next_msg_code;
 	Message::SizePrefixType next_msg_size;
 	QString error;
+	QString connection_info;
 
 	QAbstractSocket * socket;
 	QDataStream stream;
@@ -296,15 +297,7 @@ public:
 	QString get_error (void) const { return error; }
 
 	QString get_peer_username (void) const { return peer_username; }
-	QString get_connection_info (void) const {
-		if (socket->state () == QAbstractSocket::ConnectedState) {
-			return tr ("%1 on port %2")
-			    .arg (socket->peerAddress ().toString ())
-			    .arg (socket->peerPort ());
-		} else {
-			return QString ();
-		}
-	}
+	QString get_connection_info (void) const { return connection_info; }
 
 	const Payload::Manager & get_payload (void) const { return payload; }
 	const Notifier * get_notifier (void) const { return &notifier; }
@@ -329,7 +322,11 @@ private slots:
 	}
 
 protected slots:
-	void on_socket_connected (void) { send_handshake (); }
+	void on_socket_connected (void) {
+		connection_info =
+		    tr ("%1 on port %2").arg (socket->peerAddress ().toString ()).arg (socket->peerPort ());
+		send_handshake ();
+	}
 	virtual void on_data_written (void) {}
 
 protected:
