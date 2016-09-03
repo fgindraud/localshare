@@ -1,9 +1,9 @@
 Localshare - Local file sharing application
 ===========================================
 
-[![Build Status](https://travis-ci.org/lereldarion/qt-localshare.svg?branch=master)](https://travis-ci.org/lereldarion/qt-localshare)
+[![Build Status](https://travis-ci.org/lereldarion/localshare.svg?branch=master)](https://travis-ci.org/lereldarion/localshare)
 [![Localshare License](https://img.shields.io/badge/license-GPL3-blue.svg)](#license)
-[![Latest release](https://img.shields.io/github/release/lereldarion/qt-localshare.svg)](https://github.com/lereldarion/qt-localshare/releases/latest)
+[![Latest release](https://img.shields.io/github/release/lereldarion/localshare.svg)](https://github.com/lereldarion/localshare/releases/latest)
 
 Small graphical application to send a file to a local peer.
 Peers on the local network are automatically discovered using Zeroconf mDNS service discovery.

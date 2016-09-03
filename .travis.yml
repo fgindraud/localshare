@@ -46,6 +46,6 @@ deploy:
    file: "$(ls localshare-${PLATFORM}*)"
    skip_cleanup: true
    on:
-      repo: lereldarion/qt-localshare
+      repo: lereldarion/localshare
       tags: true
       condition: $RELEASE = true
