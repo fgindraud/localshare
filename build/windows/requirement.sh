@@ -28,11 +28,8 @@ sudo apt-get -y -q install \
 	mxe-${MXE_TARGET}-qtsvg \
 	mxe-${MXE_TARGET}-binutils
 
-# Redirect to right qmake / g++
-export PATH="${MXE_DIR}/usr/bin:${PATH}"
-function qmake () {
-	"${MXE_EXEC}-qmake-qt5" "$@"
-}
+# Redirect to right qmake
+export PATH="${MXE_DIR}/usr/${MXE_TARGET}/qt5/bin:${PATH}"
 
 ### Bonjour apple library ###
 
